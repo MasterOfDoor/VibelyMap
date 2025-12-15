@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useProxy } from "../hooks/useProxy";
 import { useReviews, BlockchainReview } from "../hooks/useReviews";
@@ -94,13 +94,24 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     }
   }, [googlePlaceDetails, googlePhoto]);
 
+  // Track previous place ID to detect when a new place is opened
+  const prevPlaceIdRef = useRef<string | null>(null);
+  
   useEffect(() => {
     if (place && isOpen) {
+      const isNewPlace = prevPlaceIdRef.current !== place.id;
+      prevPlaceIdRef.current = place.id;
+      
       setPlaceDetails(place);
       setCurrentPhotoIndex(0); // Her yeni mekan açıldığında ilk fotoğrafa dön
-      setReviewComment(""); // Formu temizle
-      setReviewRating(5);
-      setShowReviewForm(false);
+      
+      // Sadece yeni bir mekan açıldığında formu kapat ve temizle
+      if (isNewPlace) {
+        setReviewComment(""); // Formu temizle
+        setReviewRating(5);
+        setShowReviewForm(false);
+      }
+      
       // Fetch detailed information if not already loaded
       if (!place.address && !place.hours) {
         loadPlaceDetails(place.id);
@@ -636,7 +647,11 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
         {!showReviewForm && isConnected && (
           <button
             type="button"
-            onClick={() => setShowReviewForm(true)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowReviewForm(true);
+            }}
             className="pill primary"
             style={{ width: "100%", marginBottom: "16px" }}
           >

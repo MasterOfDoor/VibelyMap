@@ -282,7 +282,17 @@ export default function Home() {
             (window as any).handleMapLocation();
           }
         }}
-        onProfileClick={() => setIsProfileOpen(true)}
+        onProfileClick={() => {
+          if (isProfileOpen) {
+            setIsProfileOpen(false);
+            setIsDetailOpen(false);
+            setSelectedPlace(null);
+          } else {
+            setIsProfileOpen(true);
+            setIsDetailOpen(false);
+            setSelectedPlace(null);
+          }
+        }}
         onEventsClick={() => openSearch("event")}
       />
 
@@ -295,6 +305,7 @@ export default function Home() {
             (window as any).handleMapLocation();
           }
         }}
+        shouldFitBounds={isResultsOpen && filteredPlaces.length > 0}
       />
 
       <SearchOverlay
