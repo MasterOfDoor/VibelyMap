@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   other: {
-    "base:app_id": "693f36a5d19763ca26ddc2e3",
+    "base:app_id": "69407ee4d77c069a945bdf34",
     "fc:miniapp": JSON.stringify({
       version: miniapp.version,
       imageUrl: miniapp.imageUrl,
