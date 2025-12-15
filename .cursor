@@ -1,0 +1,34 @@
+# Cursor IDE Coding Guidelines
+
+## 1. SOLID Principles & Senior-Level Code Quality
+
+- **Single Responsibility Principle (SRP)**: Her modül, fonksiyon veya sınıf tek bir sorumluluğa sahip olmalı
+- **Open/Closed Principle (OCP)**: Genişlemeye açık, değişikliğe kapalı tasarım
+- **Liskov Substitution Principle (LSP)**: Alt sınıflar üst sınıfların yerine kullanılabilir olmalı
+- **Interface Segregation Principle (ISP)**: Gereksiz bağımlılıklar oluşturulmamalı, arayüzler spesifik olmalı
+- **Dependency Inversion Principle (DIP)**: Soyutlamalara bağımlılık, somut implementasyonlara değil
+
+## 2. Code Organization & Consistency
+
+- Mevcut kod yapısına ve pattern'lere uyum sağla
+- Spagetti kod oluşturma - her zaman temiz, okunabilir ve maintainable kod yaz
+- Mevcut dosya yapısı ve naming convention'lara saygı göster
+- Kod tekrarından kaçın (DRY - Don't Repeat Yourself)
+- Kod base'in layout'una her zaman uygun davran
+
+## 3. Documentation Policy
+
+- Yapılan değişiklikler sonucu açıklama dosyası (CHANGELOG, UPDATE_NOTES, vb.) oluşturma
+- Sadece kod değişiklikleri yap, dokümantasyon dosyaları oluşturma
+
+## 4. Git Commit Policy
+
+- Commit mesajları her zaman Conventional Commits formatında olmalı
+- Format: `<type>(<scope>): <subject>`
+- Örnekler:
+  - `feat(map): harita zoom özelliği eklendi`
+  - `fix(panel): detay paneli kapanma sorunu düzeltildi`
+  - `refactor(wallet): sadece Base Kit kullanımına geçildi`
+  - `style(css): button stilleri güncellendi`
+  - `chore(deps): bağımlılıklar güncellendi`
+

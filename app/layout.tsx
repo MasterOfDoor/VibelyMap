@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import type { ReactNode } from "react";
 import "./globals.css";
 import "../style.css";
 import "./utils/suppressConsoleErrors";
@@ -7,47 +8,12 @@ import { RootProvider } from "./rootProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Farcaster Mini App metadata
-const miniapp = {
-  name: "Harita",
-  version: "1",
-  homeUrl: "https://harita-six.vercel.app/",
-  imageUrl: "https://harita-six.vercel.app/imageurl23.png",
-  // Relative path kullan (32 karakter limit için)
-  splashImageUrl: "/logo.png",
-  splashBackgroundColor: "#d4a657",
-};
+
+
 
 export const metadata: Metadata = {
-  title: miniapp.name,
-  description: "Yakın mekanlar harita uygulaması - Base Mini App",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: miniapp.name,
-  },
-  openGraph: {
-    title: miniapp.name,
-    description: "Yakın mekanlar harita uygulaması",
-    type: "website",
-  },
   other: {
     "base:app_id": "69407ee4d77c069a945bdf34",
-    "fc:miniapp": JSON.stringify({
-      version: miniapp.version,
-      imageUrl: miniapp.imageUrl,
-      button: {
-        title: `${miniapp.name}'a Katıl`,
-        action: {
-          type: "launch_frame",
-          url: miniapp.homeUrl,
-          name: miniapp.name,
-          splashImageUrl: miniapp.splashImageUrl,
-          splashBackgroundColor: miniapp.splashBackgroundColor,
-        },
-      },
-    }),
   },
 };
 
@@ -62,7 +28,7 @@ export const viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: ReactNode;
 }>) {
   return (
     <html lang="tr">
