@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "../style.css";
 import "./utils/suppressConsoleErrors";
 import { RootProvider } from "./rootProvider";
 
@@ -86,6 +87,10 @@ export default function RootLayout({
         <RootProvider>
           {children}
         </RootProvider>
+        {/* Load vanilla JS modules - script.js must load first */}
+        <script src="/script.js" defer></script>
+        <script src="/filtreleme.js" defer></script>
+        <script src="/etkinlikler.js" defer></script>
       </body>
     </html>
   );
