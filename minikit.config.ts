@@ -1,4 +1,4 @@
-const ROOT_URL = "https://vibely-map.vercel.app/"
+const ROOT_URL = "https://vibely-map.vercel.app"
 /**
  * MiniApp configuration object. Must follow the mini app manifest specification.
  *
