@@ -253,6 +253,7 @@ export async function GET(request: NextRequest) {
         "formattedAddress",
         "formattedPhoneNumber",
         "websiteUri",
+        "location",
         "regularOpeningHours.weekdayDescriptions",
         "photos.name", // Tüm fotoğrafların name'leri
         "photos.widthPx",
@@ -382,8 +383,7 @@ export async function GET(request: NextRequest) {
 
       // Place Photos (New API v1) - photo name format: places/PLACE_ID/photos/PHOTO_RESOURCE
       // According to Google Places API documentation:
-      // GET https://places.googleapis.com/v1/PHOTO_NAME?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
-      // Note: Use photo name directly (no /media endpoint)
+      // GET https://places.googleapis.com/v1/places/{PLACE_ID}/photos/{PHOTO_ID}/media?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
       // ref zaten URL-encoded geliyor (places%2FChIJ...%2Fphotos%2F...)
       let decoded = decodeURIComponent(ref);
       
@@ -406,8 +406,10 @@ export async function GET(request: NextRequest) {
         ));
       }
       
-      // Build URL - photoName path kısmı olarak kullanılır (encode edilmemeli)
-      // Query parameters için URLSearchParams kullan
+      // Google Places API v1 photo endpoint requires /media suffix
+      // photoName format: places/PLACE_ID/photos/PHOTO_ID
+      // URL format: https://places.googleapis.com/v1/places/PLACE_ID/photos/PHOTO_ID/media
+      // Build URL - photoName'a /media ekle
       const urlParams = new URLSearchParams({
         maxWidthPx: maxwidth,
         maxHeightPx: maxheight,
@@ -415,7 +417,7 @@ export async function GET(request: NextRequest) {
       });
       
       // URL path kısmını encode etme, sadece query params'ı ekle
-      const url = `https://places.googleapis.com/v1/${photoName}?${urlParams.toString()}`;
+      const url = `https://places.googleapis.com/v1/${photoName}/media?${urlParams.toString()}`;
       
       console.log("[Google Photo] Request:", {
         photoName: photoName.substring(0, 100) + "...",
