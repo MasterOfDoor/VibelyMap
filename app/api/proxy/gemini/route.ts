@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { log } from "@/app/utils/logger";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
@@ -29,45 +30,76 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   if (!GEMINI_API_KEY) {
+    log.geminiError("GEMINI_API_KEY environment variable is missing", {
+      action: "api_key_check",
+    });
     return setCorsHeaders(
-      NextResponse.json({ error: "missing_gemini_key" }, { status: 500 })
+      NextResponse.json({ error: "missing_gemini_key", message: "GEMINI_API_KEY environment variable is not set" }, { status: 500 })
     );
   }
+  
+  log.gemini("API request received", {
+    action: "request_received",
+    apiKeyLength: GEMINI_API_KEY.length,
+  });
 
   try {
     // Request body size kontrolü
     const contentType = request.headers.get("content-type");
     const contentLength = request.headers.get("content-length");
+    let bodySizeMB = 0;
     if (contentLength) {
-      const sizeInMB = parseInt(contentLength) / (1024 * 1024);
-      console.log("[Gemini Proxy] Request body size:", sizeInMB.toFixed(2), "MB");
-      if (sizeInMB > 10) {
-        console.warn("[Gemini Proxy] Request body size exceeds 10MB limit");
+      bodySizeMB = parseInt(contentLength) / (1024 * 1024);
+      log.gemini("Request body size", {
+        action: "body_size_check",
+        sizeMB: parseFloat(bodySizeMB.toFixed(2)),
+      });
+      if (bodySizeMB > 10) {
+        log.geminiError("Request body size exceeds 10MB limit", {
+          action: "body_size_warning",
+          sizeMB: parseFloat(bodySizeMB.toFixed(2)),
+        });
       }
     }
 
     const body = await request.json();
     const { photoUrls, prompt } = body;
     
-    console.log("[Gemini Proxy] Received request:", {
+    log.gemini("Request parsed", {
+      action: "request_parsed",
       photoCount: photoUrls?.length || 0,
       promptLength: prompt?.length || 0,
+      bodySizeMB: parseFloat(bodySizeMB.toFixed(2)),
     });
 
     if (!photoUrls || !Array.isArray(photoUrls) || photoUrls.length === 0) {
+      log.geminiError("Missing photo URLs", {
+        action: "validation_error",
+        photoUrls: photoUrls,
+      });
       return setCorsHeaders(
         NextResponse.json({ error: "missing_photo_urls" }, { status: 400 })
       );
     }
 
     if (!prompt) {
+      log.geminiError("Missing prompt", {
+        action: "validation_error",
+      });
       return setCorsHeaders(
         NextResponse.json({ error: "missing_prompt" }, { status: 400 })
       );
     }
 
     // Gemini API'ye istek gönder
-    const geminiUrl = `https://generativeai.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // Alternatif endpoint: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+
+    log.gemini("Preparing API request", {
+      action: "prepare_request",
+      url: geminiUrl.split("?")[0], // API key'i gizle
+      photoCount: photoUrls.length,
+    });
 
     // Fotoğrafları Gemini formatına çevir
     const parts: any[] = [];
@@ -75,18 +107,30 @@ export async function POST(request: NextRequest) {
     // Fotoğraf base64 data'larını ekle (prefix temizleme ile)
     const cleanedPhotoUrls = photoUrls.map((url: string) => cleanBase64Data(url));
     
-    cleanedPhotoUrls.forEach((base64Data: string) => {
+    cleanedPhotoUrls.forEach((base64Data: string, index: number) => {
       parts.push({
         inlineData: {
           mime_type: "image/jpeg", // mimeType yerine mime_type kullan (Google API dokümantasyonu)
           data: base64Data, // Temizlenmiş base64 string
         },
       });
+      log.debug(`Photo ${index + 1} processed`, {
+        action: "photo_processed",
+        photoIndex: index + 1,
+        base64Length: base64Data.length,
+      });
     });
 
     // Prompt'u ekle
     parts.push({
       text: prompt,
+    });
+    
+    log.gemini("Request parts prepared", {
+      action: "request_prepared",
+      totalParts: parts.length,
+      photoParts: cleanedPhotoUrls.length,
+      textParts: 1,
     });
 
     const geminiRequest = {
@@ -100,6 +144,12 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    log.gemini("Sending request to Gemini API", {
+      action: "api_request",
+      url: geminiUrl.split("?")[0],
+    });
+
+    const startTime = Date.now();
     const response = await fetch(geminiUrl, {
       method: "POST",
       headers: {
@@ -107,6 +157,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(geminiRequest),
     });
+    const duration = Date.now() - startTime;
 
     if (!response.ok) {
       // Önce text olarak oku, sonra JSON parse et
@@ -117,11 +168,13 @@ export async function POST(request: NextRequest) {
       } catch {
         errorDetail = { error: errorText || "Unknown error", raw: errorText };
       }
-      console.error("[Gemini API] Error:", {
+      log.geminiError("Gemini API request failed", {
+        action: "api_error",
         status: response.status,
         statusText: response.statusText,
+        duration: `${duration}ms`,
         error: errorDetail,
-        url: geminiUrl.split("?")[0], // API key'i gizle
+        url: geminiUrl.split("?")[0],
       });
       return setCorsHeaders(
         NextResponse.json(
@@ -130,13 +183,28 @@ export async function POST(request: NextRequest) {
         )
       );
     }
+    
+    log.gemini("Gemini API request successful", {
+      action: "api_success",
+      status: response.status,
+      duration: `${duration}ms`,
+    });
 
     const data = await response.json();
     const candidate = data.candidates?.[0];
     
+    log.gemini("Response received", {
+      action: "response_received",
+      hasCandidate: !!candidate,
+      finishReason: candidate?.finishReason,
+    });
+    
     // Safety filtre kontrolü
     if (candidate?.finishReason === "SAFETY") {
-      console.warn("[Gemini API] Content blocked by safety filters");
+      log.geminiError("Content blocked by safety filters", {
+        action: "safety_filter",
+        finishReason: candidate.finishReason,
+      });
       return setCorsHeaders(
         NextResponse.json(
           { 
@@ -150,14 +218,27 @@ export async function POST(request: NextRequest) {
 
     // Finish reason kontrolü
     if (candidate?.finishReason && candidate.finishReason !== "STOP") {
-      console.warn(`[Gemini API] Unexpected finish reason: ${candidate.finishReason}`);
+      log.warn("Unexpected finish reason", {
+        action: "finish_reason_warning",
+        finishReason: candidate.finishReason,
+      });
     }
 
     const text = candidate?.content?.parts?.[0]?.text || "Cevap üretilemedi.";
+    
+    log.gemini("Response processed successfully", {
+      action: "response_processed",
+      textLength: text.length,
+      hasText: !!text,
+    });
 
     return setCorsHeaders(NextResponse.json({ text }));
   } catch (error: any) {
-    console.error("[Gemini Proxy] Error:", error);
+    log.geminiError("Proxy error", {
+      action: "proxy_error",
+      errorMessage: error.message,
+      errorName: error.name,
+    }, error);
     return setCorsHeaders(
       NextResponse.json(
         { error: "proxy_failed", detail: error.message },

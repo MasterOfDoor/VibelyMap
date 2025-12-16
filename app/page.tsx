@@ -65,10 +65,12 @@ export default function Home() {
   }, [places, currentFilters, filterPlaces]);
 
   const handlePlaceClick = useCallback((place: Place) => {
-    setSelectedPlace(place);
+    // Places listesinden güncel place'i bul (analiz sonuçları dahil)
+    const updatedPlace = places.find((p) => p.id === place.id) || place;
+    setSelectedPlace(updatedPlace);
     setIsDetailOpen(true);
     setIsResultsOpen(false);
-  }, []);
+  }, [places]);
 
   const handleSearch = useCallback(
     async (query: string) => {
@@ -81,11 +83,36 @@ export default function Home() {
       resetFilters();
       
       if (results.length > 0) {
-        setIsResultsOpen(true);
-        setPlaces(results);
+        // AI analizini hemen yap (arama sonrası)
+        console.log("[handleSearch] Gemini analizi başlatılıyor...", results.length, "mekan için");
+        try {
+          const analysisResults = await analyzePlacesPhotos(results);
+          console.log("[handleSearch] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
+
+          // Analiz sonuçlarını places'lere uygula
+          const enrichedResults = results.map((place) => {
+            const analysisTags = analysisResults.get(place.id);
+            if (analysisTags && analysisTags.length > 0) {
+              console.log("[handleSearch] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
+              return {
+                ...place,
+                tags: [...(place.tags || []), ...analysisTags],
+              };
+            }
+            return place;
+          });
+
+          setIsResultsOpen(true);
+          setPlaces(enrichedResults);
+        } catch (error: any) {
+          console.error("[handleSearch] Gemini analizi hatası:", error);
+          // Hata durumunda orijinal sonuçları göster
+          setIsResultsOpen(true);
+          setPlaces(results);
+        }
       }
     },
-    [performSearch, resetFilters, setPlaces]
+    [performSearch, resetFilters, setPlaces, analyzePlacesPhotos]
   );
 
   const handleApplyFilters = useCallback(

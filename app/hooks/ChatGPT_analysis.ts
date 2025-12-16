@@ -1,6 +1,7 @@
 "use client";
 
 import { Place } from "../components/DetailPanel";
+import { log } from "../utils/logger";
 
 const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görevin, verilen FOTOĞRAFLARDA sadece kesin olarak gördüğün bilgileri çıkarmaktır. EMİN OLMADIĞIN HİÇBİR BİLGİ İÇİN ALAN OLUŞTURMA, TAHMİN YAPMA.
 
@@ -97,8 +98,11 @@ async function fetchPhotoAsDataUrl(url: string): Promise<string | null> {
     URL.revokeObjectURL(image.src);
 
     return resizedDataUrl;
-  } catch (error) {
-    console.error("Photo fetch/resize error:", error);
+  } catch (error: any) {
+    log.analysisError("Photo fetch/resize error (ChatGPT)", {
+      action: "photo_fetch_resize_error",
+      url: url.substring(0, 50) + "...",
+    }, error);
     return null;
   }
 }
@@ -159,8 +163,91 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   return tags;
 }
 
+// Depodan AI etiketlerini oku
+async function getCachedAITags(placeId: string): Promise<string[] | null> {
+  try {
+    const response = await fetch(`/api/ai-tags/${encodeURIComponent(placeId)}`);
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+      log.storage("Tags found in cache (ChatGPT)", {
+        action: "cache_hit",
+        placeId,
+        tagsCount: data.tags.length,
+      });
+      return data.tags;
+    }
+    return null;
+  } catch (error: any) {
+    log.storageError("Cache check error (ChatGPT)", {
+      action: "cache_check_exception",
+      placeId,
+    }, error);
+    return null;
+  }
+}
+
+// AI etiketlerini depoya kaydet
+async function saveAITags(placeId: string, tags: string[]): Promise<void> {
+  try {
+    log.storage("Saving tags to cache (ChatGPT)", {
+      action: "cache_save",
+      placeId,
+      tagsCount: tags.length,
+    });
+    
+    const response = await fetch(`/api/ai-tags/${encodeURIComponent(placeId)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tags }),
+    });
+    if (response.ok) {
+      log.storage("Tags saved to cache successfully (ChatGPT)", {
+        action: "cache_save_success",
+        placeId,
+        tagsCount: tags.length,
+      });
+    } else {
+      const errorText = await response.text();
+      log.storageError("Cache save failed (ChatGPT)", {
+        action: "cache_save_error",
+        placeId,
+        status: response.status,
+        error: errorText,
+      });
+    }
+  } catch (error: any) {
+    log.storageError("Cache save exception (ChatGPT)", {
+      action: "cache_save_exception",
+      placeId,
+    }, error);
+  }
+}
+
 // Tek bir mekan için fotoğraf analizi yap (ChatGPT ile)
 export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<string[]> {
+  log.chatgpt("Starting ChatGPT analysis", {
+    action: "chatgpt_analysis_start",
+    placeId: place.id,
+    placeName: place.name,
+  });
+  
+  // Önce depodan kontrol et
+  const cachedTags = await getCachedAITags(place.id);
+  if (cachedTags) {
+    log.chatgpt("Using cached tags, skipping analysis", {
+      action: "chatgpt_analysis_skipped",
+      placeId: place.id,
+      placeName: place.name,
+      tagsCount: cachedTags.length,
+    });
+    return cachedTags;
+  }
+  
   try {
     // Fotoğraf URL'lerini topla
     const photoUrls: string[] = [
@@ -169,7 +256,11 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
     ].filter(Boolean).slice(0, 6); // Maksimum 6 fotoğraf
 
     if (photoUrls.length === 0) {
-      console.log("[ChatGPT Analysis] Fotoğraf yok, analiz yapılamıyor:", place.name);
+      log.chatgptError("No photos available for analysis", {
+        action: "chatgpt_no_photos",
+        placeId: place.id,
+        placeName: place.name,
+      });
       return [];
     }
 
@@ -189,14 +280,26 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
     }
 
     if (photoDataUrls.length === 0) {
-      console.warn("[ChatGPT Analysis] Fotoğraf yüklenemedi:", place.name);
+      log.chatgptError("Failed to load photos", {
+        action: "chatgpt_photo_load_failed",
+        placeId: place.id,
+        placeName: place.name,
+      });
       return [];
     }
 
     // Prompt oluştur
     const prompt = `${SYSTEM_PROMPT}\n\nŞimdi bu fotoğrafları analiz et:`;
 
+    log.chatgpt("Sending request to ChatGPT API", {
+      action: "chatgpt_api_request",
+      placeId: place.id,
+      placeName: place.name,
+      photoCount: photoDataUrls.length,
+    });
+
     // ChatGPT API'ye istek gönder
+    const startTime = Date.now();
     const response = await fetch("/api/proxy/chatgpt", {
       method: "POST",
       headers: {
@@ -209,16 +312,28 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
     });
 
     if (!response.ok) {
+      const duration = Date.now() - startTime;
       const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      console.error("[ChatGPT Analysis] API hatası:", error);
+      log.chatgptError("ChatGPT API request failed", {
+        action: "chatgpt_api_error",
+        placeId: place.id,
+        placeName: place.name,
+        duration: `${duration}ms`,
+        error: error,
+      });
       throw new Error(`ChatGPT API failed: ${error.error || "Unknown error"}`);
     }
 
+    const duration = Date.now() - startTime;
     const data = await response.json();
     const text = data.output_text || data.text || "";
 
     if (!text) {
-      console.warn("[ChatGPT Analysis] Boş cevap alındı");
+      log.chatgptError("Empty response from ChatGPT", {
+        action: "chatgpt_empty_response",
+        placeId: place.id,
+        placeName: place.name,
+      });
       throw new Error("Empty response from ChatGPT");
     }
 
@@ -234,18 +349,47 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
       }
       
       result = JSON.parse(cleanedText);
-    } catch (error) {
-      console.warn("[ChatGPT Analysis] JSON parse hatası:", text, error);
+    } catch (error: any) {
+      log.chatgptError("JSON parse error", {
+        action: "chatgpt_json_parse_error",
+        placeId: place.id,
+        placeName: place.name,
+        textLength: text.length,
+      }, error);
       throw new Error("Invalid JSON response from ChatGPT");
     }
 
-    console.log("[ChatGPT Analysis] Analiz tamamlandı:", place.name, result);
+    log.chatgpt("ChatGPT analysis completed successfully", {
+      action: "chatgpt_analysis_success",
+      placeId: place.id,
+      placeName: place.name,
+      duration: `${duration}ms`,
+      resultKeys: Object.keys(result),
+    });
 
     // Sonuçları etiketlere çevir
     const tags = convertAnalysisToTags(result);
+    
+    log.analysis("Tags converted from ChatGPT result", {
+      action: "tags_converted",
+      placeId: place.id,
+      placeName: place.name,
+      tagsCount: tags.length,
+      tags: tags,
+    });
+    
+    // Etiketleri depoya kaydet
+    if (tags.length > 0) {
+      await saveAITags(place.id, tags);
+    }
+    
     return tags;
   } catch (error: any) {
-    console.error("[ChatGPT Analysis] Hata:", error);
+    log.chatgptError("ChatGPT analysis error", {
+      action: "chatgpt_analysis_error",
+      placeId: place.id,
+      placeName: place.name,
+    }, error);
     throw error; // Hata durumunda throw et ki fallback çalışmasın
   }
 }

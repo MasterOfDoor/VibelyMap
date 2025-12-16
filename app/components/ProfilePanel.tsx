@@ -143,9 +143,13 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           }
           
           // Başarı mesajı göster
-          if (typeof window !== "undefined" && (window as any).showToast) {
-            (window as any).showToast("Profil fotoğrafı güncellendi");
-          } else {
+          try {
+            if (typeof window !== "undefined" && typeof (window as any).showToast === "function") {
+              (window as any).showToast("Profil fotoğrafı güncellendi");
+            } else {
+              console.log("Profil fotoğrafı güncellendi");
+            }
+          } catch (error) {
             console.log("Profil fotoğrafı güncellendi");
           }
         } catch (error: any) {

@@ -120,7 +120,13 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       const isNewPlace = prevPlaceIdRef.current !== place.id;
       prevPlaceIdRef.current = place.id;
       
-      setPlaceDetails(place);
+      // Place objesini güncelle (tags dahil tüm bilgileri)
+      setPlaceDetails({
+        ...place,
+        tags: place.tags || [],
+        features: place.features || [],
+        labels: place.labels || [],
+      });
       setCurrentPhotoIndex(0); // Her yeni mekan açıldığında ilk fotoğrafa dön
       
       // Sadece yeni bir mekan açıldığında formu kapat ve temizle
@@ -136,6 +142,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       }
 
       // Yeni mekan açıldığında Gemini fotoğraf analizi yap
+      // Her zaman analiz yap (depodan kontrol edilecek)
       if (isNewPlace && place) {
         console.log("[DetailPanel] AI analizi başlatılıyor:", place.name);
         analyzePlacePhotos(place).then((tags) => {
@@ -221,17 +228,12 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     return filtered;
   }, [placeDetails?.photos, placeDetails?.photo, placeDetails?.name]);
 
-  // Photos değiştiğinde index'i sıfırla (sadece photos.length değiştiğinde)
+  // Yeni mekan açıldığında index'i sıfırla (sadece placeDetails.id değiştiğinde)
   useEffect(() => {
-    if (placeDetails && photos.length > 0) {
-      setCurrentPhotoIndex((prev) => {
-        if (prev >= photos.length) {
-          return 0;
-        }
-        return prev;
-      });
+    if (placeDetails?.id) {
+      setCurrentPhotoIndex(0);
     }
-  }, [placeDetails?.id, photos.length]);
+  }, [placeDetails?.id]);
 
   // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
   useEffect(() => {
@@ -255,6 +257,10 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    console.log("[DetailPanel] handlePrevPhoto called", { 
+      photosLength: photos.length,
+      photos: photos 
+    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev - 1 + photos.length) % photos.length;
@@ -269,6 +275,10 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const handleNextPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    console.log("[DetailPanel] handleNextPhoto called", { 
+      photosLength: photos.length,
+      photos: photos 
+    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev + 1) % photos.length;
@@ -349,8 +359,10 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                     left: "10px",
                     top: "50%",
                     transform: "translateY(-50%)",
-                    zIndex: 10,
+                    zIndex: 100,
                     display: "flex",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
                   }}
                 >
                   &lt;
@@ -365,8 +377,10 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                     right: "10px",
                     top: "50%",
                     transform: "translateY(-50%)",
-                    zIndex: 10,
+                    zIndex: 100,
                     display: "flex",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
                   }}
                 >
                   &gt;
@@ -380,7 +394,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
               alt={placeDetails.name}
               loading="lazy"
               onClick={openFullscreen}
-              style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", pointerEvents: "auto" }}
               onError={(e) => {
                 console.error("[DetailPanel] Fotoğraf yüklenemedi:", photos[currentPhotoIndex]);
                 (e.target as HTMLImageElement).style.display = "none";

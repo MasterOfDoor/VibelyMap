@@ -1,6 +1,7 @@
 "use client";
 
 import { Place } from "../components/DetailPanel";
+import { log } from "../utils/logger";
 
 const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görevin, verilen FOTOĞRAFLARDA sadece kesin olarak gördüğün bilgileri çıkarmaktır. EMİN OLMADIĞIN HİÇBİR BİLGİ İÇİN ALAN OLUŞTURMA, TAHMİN YAPMA.
 
@@ -96,8 +97,11 @@ async function fetchPhotoAsDataUrl(url: string): Promise<string | null> {
     URL.revokeObjectURL(image.src);
 
     return resizedDataUrl;
-  } catch (error) {
-    console.error("Photo fetch/resize error:", error);
+  } catch (error: any) {
+    log.analysisError("Photo fetch/resize error", {
+      action: "photo_fetch_resize_error",
+      url: url.substring(0, 50) + "...",
+    }, error);
     return null;
   }
 }
@@ -158,21 +162,125 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   return tags;
 }
 
+// Depodan AI etiketlerini oku
+async function getCachedAITags(placeId: string): Promise<string[] | null> {
+  try {
+    log.storage("Checking cache for tags", {
+      action: "cache_check",
+      placeId,
+    });
+    
+    const response = await fetch(`/api/ai-tags/${encodeURIComponent(placeId)}`);
+    if (!response.ok) {
+      log.storageError("Cache check failed", {
+        action: "cache_check_error",
+        placeId,
+        status: response.status,
+      });
+      return null;
+    }
+    const data = await response.json();
+    if (data.tags && Array.isArray(data.tags) && data.tags.length > 0) {
+      log.storage("Tags found in cache", {
+        action: "cache_hit",
+        placeId,
+        tagsCount: data.tags.length,
+        cached: data.cached,
+      });
+      return data.tags;
+    }
+    log.storage("No tags found in cache", {
+      action: "cache_miss",
+      placeId,
+    });
+    return null;
+  } catch (error: any) {
+    log.storageError("Cache check error", {
+      action: "cache_check_exception",
+      placeId,
+    }, error);
+    return null;
+  }
+}
+
+// AI etiketlerini depoya kaydet
+async function saveAITags(placeId: string, tags: string[]): Promise<void> {
+  try {
+    log.storage("Saving tags to cache", {
+      action: "cache_save",
+      placeId,
+      tagsCount: tags.length,
+    });
+    
+    const response = await fetch(`/api/ai-tags/${encodeURIComponent(placeId)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tags }),
+    });
+    if (response.ok) {
+      log.storage("Tags saved to cache successfully", {
+        action: "cache_save_success",
+        placeId,
+        tagsCount: tags.length,
+      });
+    } else {
+      const errorText = await response.text();
+      log.storageError("Cache save failed", {
+        action: "cache_save_error",
+        placeId,
+        status: response.status,
+        error: errorText,
+      });
+    }
+  } catch (error: any) {
+    log.storageError("Cache save exception", {
+      action: "cache_save_exception",
+      placeId,
+    }, error);
+  }
+}
+
 // Tek bir mekan için fotoğraf analizi yap (Gemini ile, hata durumunda ChatGPT fallback)
 export async function analyzePlacePhotos(place: Place): Promise<string[]> {
+  log.analysis("Starting photo analysis", {
+    action: "analysis_start",
+    placeId: place.id,
+    placeName: place.name,
+  });
+  
+  // Önce depodan kontrol et
+  const cachedTags = await getCachedAITags(place.id);
+  if (cachedTags) {
+    log.analysis("Using cached tags, skipping analysis", {
+      action: "analysis_skipped",
+      placeId: place.id,
+      placeName: place.name,
+      tagsCount: cachedTags.length,
+    });
+    return cachedTags;
+  }
+  
+  log.analysis("No cached tags found, proceeding with analysis", {
+    action: "analysis_proceed",
+    placeId: place.id,
+    placeName: place.name,
+  });
+  
   // Fotoğraf URL'lerini topla
   const allPhotoUrls = [
     ...(place.photos || []),
     ...(place.photo ? [place.photo] : []),
   ].filter(Boolean);
   
-  console.log("[Photo Analysis] Place fotoğraf bilgileri:", {
-    placeName: place.name,
+  log.analysis("Place photo information collected", {
+    action: "photos_info",
     placeId: place.id,
+    placeName: place.name,
     photosArrayLength: place.photos?.length || 0,
     photoString: place.photo ? "var" : "yok",
     totalPhotoUrls: allPhotoUrls.length,
-    photoUrls: allPhotoUrls,
   });
   
   const photoUrls = allPhotoUrls.slice(0, 6); // Maksimum 6 fotoğraf
@@ -191,37 +299,65 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
 
   // Fotoğrafları base64 data URL'e çevir (bir kez yap, her iki API için kullan)
   const photoDataUrls: string[] = [];
-  console.log("[Photo Analysis] Fotoğrafları base64'e çeviriliyor:", {
+  log.analysis("Converting photos to base64", {
+    action: "photos_to_base64",
+    placeId: place.id,
     placeName: place.name,
     photoUrlsCount: photoUrls.length,
   });
   
   for (let i = 0; i < photoUrls.length; i++) {
     const url = photoUrls[i];
-    console.log(`[Photo Analysis] Fotoğraf ${i + 1}/${photoUrls.length} yükleniyor:`, url);
+    log.debug(`Loading photo ${i + 1}/${photoUrls.length}`, {
+      action: "photo_load",
+      placeId: place.id,
+      photoIndex: i + 1,
+      totalPhotos: photoUrls.length,
+    });
+    
     const dataUrl = await fetchPhotoAsDataUrl(url);
     if (dataUrl) {
       // Base64 kısmını al (data:image/jpeg;base64, kısmını çıkar)
       const base64Data = dataUrl.split(",")[1];
       if (base64Data) {
         photoDataUrls.push(base64Data);
-        console.log(`[Photo Analysis] Fotoğraf ${i + 1} başarıyla yüklendi, base64 uzunluğu:`, base64Data.length);
+        log.debug(`Photo ${i + 1} loaded successfully`, {
+          action: "photo_load_success",
+          placeId: place.id,
+          photoIndex: i + 1,
+          base64Length: base64Data.length,
+        });
       } else {
-        console.warn(`[Photo Analysis] Fotoğraf ${i + 1} base64 parse edilemedi`);
+        log.warn(`Photo ${i + 1} base64 parse failed`, {
+          action: "photo_base64_parse_failed",
+          placeId: place.id,
+          photoIndex: i + 1,
+        });
       }
     } else {
-      console.warn(`[Photo Analysis] Fotoğraf ${i + 1} yüklenemedi:`, url);
+      log.warn(`Photo ${i + 1} load failed`, {
+        action: "photo_load_failed",
+        placeId: place.id,
+        photoIndex: i + 1,
+        url: url.substring(0, 50) + "...", // URL'i kısalt
+      });
     }
   }
 
-  console.log("[Photo Analysis] Base64 dönüşümü tamamlandı:", {
+  log.analysis("Base64 conversion completed", {
+    action: "base64_conversion_complete",
+    placeId: place.id,
     placeName: place.name,
     requestedPhotos: photoUrls.length,
     loadedPhotos: photoDataUrls.length,
   });
 
   if (photoDataUrls.length === 0) {
-    console.warn("[Photo Analysis] Hiç fotoğraf yüklenemedi:", place.name);
+    log.analysisError("No photos loaded", {
+      action: "no_photos_loaded",
+      placeId: place.id,
+      placeName: place.name,
+    });
     return [];
   }
 
@@ -230,8 +366,14 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
 
   // Önce Gemini'yi dene
   try {
-    console.log("[Gemini Analysis] Gemini ile analiz deneniyor:", place.name);
+    log.gemini("Starting Gemini analysis", {
+      action: "gemini_analysis_start",
+      placeId: place.id,
+      placeName: place.name,
+      photoCount: photoDataUrls.length,
+    });
     
+    const startTime = Date.now();
     const response = await fetch("/api/proxy/gemini", {
       method: "POST",
       headers: {
@@ -245,14 +387,25 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      console.error("[Gemini Analysis] API hatası:", error);
+      log.geminiError("Gemini API request failed", {
+        action: "gemini_api_error",
+        placeId: place.id,
+        placeName: place.name,
+        error: error,
+      });
       throw new Error(`Gemini API failed: ${error.error || "Unknown error"}`);
     }
 
+    const duration = Date.now() - startTime;
     const data = await response.json();
     const text = data.text || "";
 
     if (!text) {
+      log.geminiError("Empty response from Gemini", {
+        action: "gemini_empty_response",
+        placeId: place.id,
+        placeName: place.name,
+      });
       throw new Error("Empty response from Gemini");
     }
 
@@ -261,39 +414,83 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
     let result: PhotoAnalysisResult;
     try {
       result = JSON.parse(text);
-    } catch (error) {
-      console.warn("[Gemini Analysis] JSON parse hatası:", text, error);
+    } catch (error: any) {
+      log.geminiError("JSON parse error", {
+        action: "gemini_json_parse_error",
+        placeId: place.id,
+        placeName: place.name,
+        textLength: text.length,
+      }, error);
       throw new Error("Invalid JSON response from Gemini");
     }
 
-    console.log("[Gemini Analysis] Analiz başarıyla tamamlandı:", place.name, result);
+    log.gemini("Gemini analysis completed successfully", {
+      action: "gemini_analysis_success",
+      placeId: place.id,
+      placeName: place.name,
+      duration: `${duration}ms`,
+      resultKeys: Object.keys(result),
+    });
 
     // Sonuçları etiketlere çevir
     const tags = convertAnalysisToTags(result);
-    console.log("[Gemini Analysis] Etiketlere çevrildi:", place.name, {
-      rawResult: result,
-      convertedTags: tags,
+    log.analysis("Tags converted from analysis result", {
+      action: "tags_converted",
+      placeId: place.id,
+      placeName: place.name,
+      tagsCount: tags.length,
+      tags: tags,
     });
+    
+    // Etiketleri depoya kaydet
+    if (tags.length > 0) {
+      await saveAITags(place.id, tags);
+    }
+    
     return tags;
   } catch (geminiError: any) {
     // Gemini başarısız oldu, ChatGPT fallback'e geç
-    console.warn("[Gemini Analysis] Gemini başarısız, ChatGPT fallback'e geçiliyor:", geminiError.message);
+    log.geminiError("Gemini analysis failed, falling back to ChatGPT", {
+      action: "gemini_fallback",
+      placeId: place.id,
+      placeName: place.name,
+      error: geminiError.message,
+    }, geminiError);
     
     try {
       // ChatGPT analiz fonksiyonunu import et ve kullan
       const { analyzePlacePhotosWithChatGPT } = await import("./ChatGPT_analysis");
       
-      console.log("[ChatGPT Analysis] ChatGPT ile analiz deneniyor:", place.name);
+      log.chatgpt("Starting ChatGPT fallback analysis", {
+        action: "chatgpt_fallback_start",
+        placeId: place.id,
+        placeName: place.name,
+      });
+      
       const tags = await analyzePlacePhotosWithChatGPT(place);
       
-      console.log("[ChatGPT Analysis] Analiz başarıyla tamamlandı:", place.name);
+      log.chatgpt("ChatGPT fallback analysis completed", {
+        action: "chatgpt_fallback_success",
+        placeId: place.id,
+        placeName: place.name,
+        tagsCount: tags.length,
+      });
+      
+      // Etiketleri depoya kaydet
+      if (tags.length > 0) {
+        await saveAITags(place.id, tags);
+      }
+      
       return tags;
     } catch (chatgptError: any) {
       // Her iki API de başarısız oldu
-      console.error("[Photo Analysis] Hem Gemini hem ChatGPT başarısız:", {
-        gemini: geminiError.message,
-        chatgpt: chatgptError.message,
-      });
+      log.analysisError("Both Gemini and ChatGPT failed", {
+        action: "all_apis_failed",
+        placeId: place.id,
+        placeName: place.name,
+        geminiError: geminiError.message,
+        chatgptError: chatgptError.message,
+      }, chatgptError);
       return [];
     }
   }
@@ -303,7 +500,10 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
 export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
   const resultMap = new Map<string, string[]>();
 
-  console.log("[Gemini Analysis] Toplu analiz başlatılıyor:", places.length, "mekan");
+  log.analysis("Starting batch analysis", {
+    action: "batch_analysis_start",
+    placesCount: places.length,
+  });
 
   // Her mekan için sırayla analiz yap
   for (const place of places) {
@@ -315,11 +515,20 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
       // Rate limiting için kısa bir bekleme
       await new Promise((resolve) => setTimeout(resolve, 500));
     } catch (error: any) {
-      console.error("[Gemini Analysis] Mekan analiz hatası:", place.name, error);
+      log.analysisError("Place analysis error in batch", {
+        action: "batch_analysis_error",
+        placeId: place.id,
+        placeName: place.name,
+      }, error);
     }
   }
 
-  console.log("[Gemini Analysis] Toplu analiz tamamlandı:", resultMap.size, "sonuç");
+  log.analysis("Batch analysis completed", {
+    action: "batch_analysis_complete",
+    placesCount: places.length,
+    resultsCount: resultMap.size,
+  });
+  
   return resultMap;
 }
 
