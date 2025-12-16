@@ -25,11 +25,12 @@
 
 - Commit mesajları her zaman Conventional Commits formatında olmalı
 - Format: `<type>(<scope>): <subject>`
+-Türkçe değil Ingilizce olmalı
 - Örnekler:
   - `feat(map): harita zoom özelliği eklendi`
   - `fix(panel): detay paneli kapanma sorunu düzeltildi`
   - `refactor(wallet): sadece Base Kit kullanımına geçildi`
   - `style(css): button stilleri güncellendi`
   - `chore(deps): bağımlılıklar güncellendi`
-  -Türkçe değil Ingilizce olmalı
+  
 

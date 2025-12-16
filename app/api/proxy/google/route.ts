@@ -203,13 +203,41 @@ export async function GET(request: NextRequest) {
       }
 
       // Place Details (New) - GET request
-      const normalizedId = placeId.startsWith("places/") ? placeId : `places/${placeId}`;
-      const fieldMask = "id,displayName,formattedAddress,formattedPhoneNumber,websiteUri,regularOpeningHours,photos,location,types,rating,userRatingCount,reviews";
+      // Place ID formatını kontrol et ve normalize et
+      let normalizedId = placeId;
+      if (!normalizedId.startsWith("places/")) {
+        normalizedId = `places/${normalizedId}`;
+      }
+      
+      // FieldMask: Google Places API (New) için field mask
+      // photos field'ı tüm fotoğrafları getirir (max 10 fotoğraf)
+      const fieldMask = [
+        "id",
+        "displayName",
+        "formattedAddress",
+        "formattedPhoneNumber",
+        "websiteUri",
+        "regularOpeningHours.weekdayDescriptions",
+        "photos.name", // Tüm fotoğrafların name'leri
+        "photos.widthPx",
+        "photos.heightPx",
+        "location.latitude",
+        "location.longitude",
+        "types",
+        "rating",
+        "userRatingCount",
+        "reviews.authorAttribution.displayName",
+        "reviews.text.text",
+        "reviews.rating",
+        "reviews.publishTime",
+      ].join(",");
+      
       const url = `https://places.googleapis.com/v1/${normalizedId}`;
       
       console.log("[Google Details] Request:", {
         placeId,
         normalizedId,
+        fieldMask,
         url: url.substring(0, 100) + "...",
       });
       
