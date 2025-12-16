@@ -24,13 +24,31 @@ export function useMapPlaces() {
     const primaryType = googleTypes[0] || "Mekan";
     const tagSet = new Set<string>(googleTypes);
 
-    let photo = "";
-    const ref = item.photos?.[0]?.photo_reference;
-    if (ref) {
-      photo = `/api/proxy/google?endpoint=photo&ref=${encodeURIComponent(
-        ref
-      )}&maxwidth=800`;
+    // Tüm fotoğrafları al (sadece ilk fotoğraf değil)
+    const photos: string[] = [];
+    if (Array.isArray(item.photos) && item.photos.length > 0) {
+      item.photos.forEach((photoItem: any) => {
+        const ref = photoItem?.photo_reference || photoItem?.name;
+        if (ref) {
+          photos.push(
+            `/api/proxy/google?endpoint=photo&ref=${encodeURIComponent(
+              ref
+            )}&maxwidth=800`
+          );
+        }
+      });
     }
+    
+    // İlk fotoğrafı photo olarak da ekle (backward compatibility)
+    const photo = photos[0] || "";
+    
+    console.log("[useMapPlaces] normalizePlace - Fotoğraflar:", {
+      placeName: item.name || "Unknown",
+      placeId: item.place_id || item.id,
+      rawPhotosCount: item.photos?.length || 0,
+      processedPhotosCount: photos.length,
+      photos: photos,
+    });
 
     // mapCategoryToOptions benzeri mantık (eski script.js'den)
     const CATEGORY_KEYWORDS: { [key: string]: string[] } = {
@@ -69,6 +87,7 @@ export function useMapPlaces() {
       priceLabel,
       tel: "",
       photo,
+      photos: photos.length > 0 ? photos : undefined, // Tüm fotoğrafları ekle
       tags: Array.from(tagSet).slice(0, 5),
       features: [],
       subOptions: { Kategori: mappedCategories },

@@ -320,6 +320,8 @@ export async function GET(request: NextRequest) {
     } else if (endpoint === "photo") {
       const ref = searchParams.get("ref");
       const maxwidth = searchParams.get("maxwidth") || "800";
+      const maxheight = searchParams.get("maxheight") || maxwidth; // Default to maxwidth if not specified
+      
       if (!ref) {
         return setCorsHeaders(NextResponse.json(
           { error: "missing_photo_reference" },
@@ -327,19 +329,46 @@ export async function GET(request: NextRequest) {
         ));
       }
 
-      // Place Photos (New) - photo name format: places/PLACE_ID/photos/PHOTO_RESOURCE
-      // Yeni API'den gelen photo.name direkt kullanılabilir
-      // Query param olarak geldiği için önce decode et (aksi halde '%2F' içeren path bozulur)
+      // Place Photos (New API v1) - photo name format: places/PLACE_ID/photos/PHOTO_RESOURCE
+      // According to Google Places API documentation:
+      // GET https://places.googleapis.com/v1/PHOTO_NAME?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
+      // Note: Use photo name directly (no /media endpoint)
       const decoded = decodeURIComponent(ref);
       const photoName = decoded.startsWith("places/") ? decoded : decoded;
       
-      const url = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxwidth}&key=${GOOGLE_PLACES_KEY}`;
-      const response = await fetch(url);
+      // Build URL with query parameters (API key in query params as per documentation)
+      const urlParams = new URLSearchParams({
+        maxWidthPx: maxwidth,
+        maxHeightPx: maxheight,
+        key: GOOGLE_PLACES_KEY,
+      });
+      
+      const url = `https://places.googleapis.com/v1/${photoName}?${urlParams.toString()}`;
+      
+      console.log("[Google Photo] Request:", {
+        photoName: photoName.substring(0, 100) + "...",
+        maxWidthPx: maxwidth,
+        maxHeightPx: maxheight,
+        url: url.substring(0, 150) + "...",
+      });
+      
+      // Fetch photo - API key is in query params, no need for header
+      const response = await fetch(url, {
+        method: "GET",
+      });
       
       if (!response.ok) {
-        return NextResponse.json(
-          { error: "google_photo_failed" },
-          { status: response.status }
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("[Google Photo] Error:", {
+          status: response.status,
+          error: error.error || error,
+          photoName: photoName.substring(0, 100) + "...",
+        });
+        return setCorsHeaders(
+          NextResponse.json(
+            { error: "google_photo_failed", detail: error.error || error },
+            { status: response.status }
+          )
         );
       }
 
@@ -348,6 +377,7 @@ export async function GET(request: NextRequest) {
       const photoResponse = new NextResponse(imageBuffer, {
         headers: {
           "Content-Type": response.headers.get("Content-Type") || "image/jpeg",
+          "Cache-Control": "public, max-age=3600", // Cache for 1 hour
         },
       });
       return setCorsHeaders(photoResponse);
