@@ -72,6 +72,25 @@ export default function Home() {
     setIsResultsOpen(false);
   }, [places]);
 
+  const handlePlaceUpdate = useCallback((placeId: string, updatedPlace: Place) => {
+    // Places listesindeki ilgili place'i güncelle
+    const updatedPlaces = places.map((p: Place) => {
+      if (p.id === placeId) {
+        return updatedPlace;
+      }
+      return p;
+    });
+    setPlaces(updatedPlaces);
+    
+    // Eğer seçili place ise, onu da güncelle
+    setSelectedPlace((prevSelected) => {
+      if (prevSelected?.id === placeId) {
+        return updatedPlace;
+      }
+      return prevSelected;
+    });
+  }, [places, setPlaces]);
+
   const handleSearch = useCallback(
     async (query: string) => {
       console.log("[handleSearch] Arama başlatılıyor:", query);
@@ -331,6 +350,7 @@ export default function Home() {
           setIsDetailOpen(false);
           setSelectedPlace(null);
         }}
+        onPlaceUpdate={handlePlaceUpdate}
       />
 
       <ProfilePanel

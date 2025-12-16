@@ -39,9 +39,10 @@ interface DetailPanelProps {
   isOpen: boolean;
   place: Place | null;
   onClose: () => void;
+  onPlaceUpdate?: (placeId: string, updatedPlace: Place) => void;
 }
 
-export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps) {
+export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: DetailPanelProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [placeDetails, setPlaceDetails] = useState<Place | null>(place);
@@ -156,10 +157,17 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                 newTags: tags,
                 allTags: newTags,
               });
-              return {
+              const updatedPlace = {
                 ...prev,
                 tags: newTags,
               };
+              
+              // Parent component'e güncellenmiş place'i bildir
+              if (onPlaceUpdate) {
+                onPlaceUpdate(prev.id, updatedPlace);
+              }
+              
+              return updatedPlace;
             });
           } else {
             console.warn("[DetailPanel] AI analizi boş etiket döndü");
