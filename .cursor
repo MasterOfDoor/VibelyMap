@@ -23,14 +23,16 @@
 
 ## 4. Git Commit Policy
 
+- **IMPORTANT**: Commit mesajları MUTLAKA İngilizce olmalıdır (subject ve description)
 - Commit mesajları her zaman Conventional Commits formatında olmalı
 - Format: `<type>(<scope>): <subject>`
--Commit açıklamaları Ingilizce olmalı
-- Örnekler:
-  - `feat(map): harita zoom özelliği eklendi`
-  - `fix(panel): detay paneli kapanma sorunu düzeltildi`
-  - `refactor(wallet): sadece Base Kit kullanımına geçildi`
-  - `style(css): button stilleri güncellendi`
-  - `chore(deps): bağımlılıklar güncellendi`
+- **Language**: All commit messages MUST be in English (not Turkish)
+- Örnekler (Examples - İngilizce):
+  - `feat(map): add map zoom feature`
+  - `fix(panel): fix detail panel close issue`
+  - `refactor(wallet): migrate to Base Kit only`
+  - `style(css): update button styles`
+  - `chore(deps): update dependencies`
+  - `feat(logging): add detailed photo logging, fix navigation buttons`
   
 
