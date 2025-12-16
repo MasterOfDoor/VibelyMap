@@ -20,19 +20,8 @@ export default function WalletConnectionScreen() {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [connectionStep, setConnectionStep] = useState<"select" | "connecting" | "error">("select");
 
-  // Base Mini App içinde otomatik bağlantı kontrolü
-  useEffect(() => {
-    // Base Mini App içinde miyiz?
-    const isBaseMiniApp = typeof window !== "undefined" && 
-      (window.location.href.includes("base.org") || 
-       (window as any).miniKit || 
-       (window as any).coinbaseSDK);
-
-    if (isBaseMiniApp && !isConnected && !isConnecting) {
-      // Base Account otomatik bağlanmaya çalışıyor
-      setConnectionStep("connecting");
-    }
-  }, [isConnected, isConnecting]);
+  // Base Account'u otomatik bağlamayı devre dışı bırakıyoruz
+  // Kullanıcı manuel olarak wallet seçecek
 
   // Hata durumunu yönet
   useEffect(() => {
@@ -98,17 +87,21 @@ export default function WalletConnectionScreen() {
   };
 
   // Mevcut connector'ları kullan (OnchainKit zaten yapılandırmış)
+  // Base Account dahil tüm wallet'ları göster
   const walletOptions = connectors
-    .filter((c) => c.id !== "baseAccounts")
     .map((connector) => {
       let name = connector.name;
       let icon = "🔗";
       let description = "Cüzdan ile bağlan";
 
-      if (connector.id.includes("coinbase") || connector.id.includes("base")) {
-        name = "Base Wallet";
+      if (connector.id === "baseAccounts" || connector.id.includes("baseAccounts")) {
+        name = "Base Account";
         icon = "🔷";
-        description = "Base ağı için optimize edilmiş cüzdan";
+        description = "Base Mini App için optimize edilmiş hesap";
+      } else if (connector.id.includes("coinbase") || connector.id.includes("coinbaseWalletSDK")) {
+        name = "Coinbase Wallet";
+        icon = "🔷";
+        description = "Coinbase cüzdanı ile bağlan";
       } else if (connector.id.includes("metaMask") || connector.id.includes("injected")) {
         name = "MetaMask";
         icon = "🦊";
@@ -117,6 +110,10 @@ export default function WalletConnectionScreen() {
         name = "MetaMask";
         icon = "🦊";
         description = "MetaMask cüzdanı";
+      } else if (connector.id.includes("walletConnect")) {
+        name = "WalletConnect";
+        icon = "🔗";
+        description = "QR kod ile bağlan";
       }
 
       return {
@@ -135,7 +132,11 @@ export default function WalletConnectionScreen() {
         <div className="connection-container">
           <div className="connection-header">
             <div className="connection-icon animate-pulse">
-              {selectedWallet === "coinbaseWalletSDK" ? "🔷" : "🔗"}
+              {selectedWallet === "baseAccounts" || selectedWallet?.includes("baseAccounts") 
+                ? "🔷" 
+                : selectedWallet === "coinbaseWalletSDK" 
+                ? "🔷" 
+                : "🔗"}
             </div>
             <h1 className="connection-title">Cüzdan Bağlanıyor...</h1>
             <p className="connection-subtitle">
