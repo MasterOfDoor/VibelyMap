@@ -1,7 +1,7 @@
 "use client";
 
 import { Place } from "../components/DetailPanel";
-import { log } from "../utils/logger";
+import { log } from "@/app/utils/logger";
 
 const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görevin, verilen FOTOĞRAFLARDA sadece kesin olarak gördüğün bilgileri çıkarmaktır. EMİN OLMADIĞIN HİÇBİR BİLGİ İÇİN ALAN OLUŞTURMA, TAHMİN YAPMA.
 
@@ -293,7 +293,7 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
     
     try {
       // Gemini analiz fonksiyonunu import et ve kullan
-      const { analyzePlacePhotos: analyzePlacePhotosGemini } = await import("./Gemini_analysis");
+      const { analyzePlacePhotosWithGemini } = await import("./Gemini_analysis");
       
       log.gemini("Starting Gemini fallback analysis", {
         action: "gemini_fallback_start",
@@ -301,7 +301,7 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
         placeName: place.name,
       });
       
-      const tags = await analyzePlacePhotosGemini(place);
+      const tags = await analyzePlacePhotosWithGemini(place);
       
       log.gemini("Gemini fallback analysis completed", {
         action: "gemini_fallback_success",

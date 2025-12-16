@@ -17,7 +17,6 @@ import DetailPanel from "./components/DetailPanel";
 import FilterPanel, { FilterState } from "./components/FilterPanel";
 import ProfilePanel from "./components/ProfilePanel";
 
-
 // Leaflet haritasını dinamik olarak yükle (SSR sorunlarını önlemek için)
 const MapComponent = dynamic(() => import("./components/MapComponent"), {
   ssr: false,
@@ -102,6 +101,25 @@ export default function Home() {
     setIsDetailOpen(true);
     setIsResultsOpen(false);
   }, [places]);
+
+  const handlePlaceUpdate = useCallback((placeId: string, updatedPlace: Place) => {
+    // Places listesindeki ilgili place'i güncelle
+    const updatedPlaces = places.map((p: Place) => {
+      if (p.id === placeId) {
+        return updatedPlace;
+      }
+      return p;
+    });
+    setPlaces(updatedPlaces);
+    
+    // Eğer seçili place ise, onu da güncelle
+    setSelectedPlace((prevSelected) => {
+      if (prevSelected?.id === placeId) {
+        return updatedPlace;
+      }
+      return prevSelected;
+    });
+  }, [places, setPlaces]);
 
   const handleSearch = useCallback(
     async (query: string) => {
@@ -348,6 +366,7 @@ export default function Home() {
             (window as any).handleMapLocation();
           }
         }}
+        shouldFitBounds={isResultsOpen && filteredPlaces.length > 0}
       />
 
       <SearchOverlay
@@ -378,6 +397,7 @@ export default function Home() {
           setIsDetailOpen(false);
           setSelectedPlace(null);
         }}
+        onPlaceUpdate={handlePlaceUpdate}
       />
 
       <ProfilePanel

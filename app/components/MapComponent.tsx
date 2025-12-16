@@ -17,6 +17,7 @@ interface MapComponentProps {
   selectedPlace: Place | null;
   onPlaceClick: (place: Place) => void;
   onLocationClick?: () => void;
+  shouldFitBounds?: boolean; // Arama sonrası haritayı fit etmek için
 }
 
 function MapComponent({
@@ -24,6 +25,7 @@ function MapComponent({
   selectedPlace,
   onPlaceClick,
   onLocationClick,
+  shouldFitBounds = false,
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -84,9 +86,6 @@ function MapComponent({
     };
   }, []);
 
-  // Track previous places to detect when new search results arrive
-  const previousPlacesRef = useRef<Place[]>([]);
-
   // Update markers when places change
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -97,12 +96,6 @@ function MapComponent({
 
     // Add markers for each place
     if (!places || !Array.isArray(places)) return;
-    
-    // Check if places have changed significantly (new search results)
-    const placesChanged = places.length > 0 && 
-      (previousPlacesRef.current.length === 0 || 
-       places.length !== previousPlacesRef.current.length ||
-       places.some((p, i) => p.id !== previousPlacesRef.current[i]?.id));
     
     places.forEach((place) => {
       if (!place.coords || place.coords.length !== 2) return;
@@ -132,30 +125,23 @@ function MapComponent({
 
       marker.on("click", () => {
         onPlaceClick(place);
-        // Marker'a tıklayınca zoom yap
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.setView([place.coords[0], place.coords[1]], 16);
-        }
+        // Zoom yapma - sadece detay paneli açılsın
+        // if (mapInstanceRef.current) {
+        //   mapInstanceRef.current.setView([place.coords[0], place.coords[1]], 16);
+        // }
       });
 
       markersRef.current.push(marker);
     });
 
-    // Fit bounds when new search results arrive (places changed)
-    if (placesChanged && places.length > 0 && mapInstanceRef.current) {
-      const validCoords = places
-        .filter((p) => p.coords && p.coords.length === 2)
-        .map((p) => [p.coords[0], p.coords[1]] as [number, number]);
-      
-      if (validCoords.length > 0) {
-        const bounds = L.latLngBounds(validCoords);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-      }
+    // Fit bounds sadece shouldFitBounds true olduğunda (arama sonrası)
+    if (shouldFitBounds && places.length > 0 && mapInstanceRef.current) {
+      const bounds = L.latLngBounds(
+        places.map((p) => [p.coords[0], p.coords[1]] as [number, number])
+      );
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
-    
-    // Update previous places reference
-    previousPlacesRef.current = places;
-  }, [places, onPlaceClick]);
+  }, [places, onPlaceClick, shouldFitBounds]);
 
   // Focus on selected place - zoom yapma, sadece marker'ı highlight et
   // useEffect(() => {

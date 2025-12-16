@@ -8,10 +8,17 @@ const optionCategory: { [key: string]: string } = {
   Los: "Isiklandirma",
   Dogal: "Isiklandirma",
   Canli: "Isiklandirma",
+  Tatli: "Yemek",
+  Kahvalti: "Yemek",
+  Vegan: "Yemek",
+  Atistirmalik: "Yemek",
   "Masada priz": "Priz",
   "Priz Az": "Priz",
   "Priz Orta": "Priz",
   "Priz Var": "Priz",
+  Uygun: "Fiyat",
+  Orta: "Fiyat",
+  Pahali: "Fiyat",
   Retro: "Ambiyans",
   Modern: "Ambiyans",
   "Koltuk var": "Oturma",
@@ -71,7 +78,7 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
 
   if (!hasFilters) return true;
 
-  // Check range filters (Isiklandirma, Oturma, and Priz)
+  // Check range filters (Isiklandirma and Oturma)
   if (ranges) {
     // Işıklandırma filtresi (1-5)
     if (ranges.Isiklandirma !== undefined) {

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Centralized logging system for VibelyMap
  * Provides structured logging with different log levels
@@ -14,8 +16,13 @@ class Logger {
   private isProduction: boolean;
 
   constructor() {
-    this.isDevelopment = process.env.NODE_ENV === "development";
-    this.isProduction = process.env.NODE_ENV === "production";
+    // Use typeof window check for client-side compatibility
+    this.isDevelopment = 
+      (typeof window !== "undefined" && process.env.NODE_ENV === "development") ||
+      (typeof process !== "undefined" && process.env.NODE_ENV === "development");
+    this.isProduction = 
+      (typeof window !== "undefined" && process.env.NODE_ENV === "production") ||
+      (typeof process !== "undefined" && process.env.NODE_ENV === "production");
   }
 
   private formatMessage(

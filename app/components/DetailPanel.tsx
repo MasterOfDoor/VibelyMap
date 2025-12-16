@@ -39,10 +39,15 @@ interface DetailPanelProps {
   isOpen: boolean;
   place: Place | null;
   onClose: () => void;
+  onPlaceUpdate?: (placeId: string, updatedPlace: Place) => void;
 }
 
-export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps) {
+export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: DetailPanelProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  // Use ref to track current index to avoid stale closures
+  const currentPhotoIndexRef = useRef(0);
+  // Use ref to maintain stable photos array reference
+  const photosRef = useRef<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [placeDetails, setPlaceDetails] = useState<Place | null>(place);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -56,6 +61,17 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  
+  // Detaylı rating kriterleri
+  const [detailedRatings, setDetailedRatings] = useState({
+    lighting: 3, // 1-5
+    ambiance: 3, // 1-5
+    seating: 3, // 1-5
+    powerOutlets: 3, // 1-5
+    proximityToWater: 1, // 1-5
+    smokingOption: "" as "" | "indoor_smoking" | "non_smoking", // "" = not selected
+    category: "" as "" | "Kafe" | "Restoran" | "Bar", // "" = not selected
+  });
 
   const loadPlaceDetails = useCallback(async (placeId: string) => {
     if (!placeId) return;
@@ -64,12 +80,29 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       const data = await googlePlaceDetails(placeId);
       const result = data?.result || data;
       if (result) {
-        const photos = (result.photos || [])
+        const rawPhotos = result.photos || [];
+        console.log("[DetailPanel] Google Places API'den gelen fotoğraflar:", {
+          placeId,
+          rawPhotosCount: rawPhotos.length,
+          rawPhotos: rawPhotos.map((p: any) => ({
+            ref: p?.photo_reference || p?.name,
+            name: p?.name,
+          })),
+        });
+        
+        const photos = rawPhotos
           .map((p: any) => {
             const ref = p?.photo_reference || p?.name;
             return ref ? googlePhoto(ref, "800") : "";
           })
           .filter(Boolean);
+        
+        console.log("[DetailPanel] İşlenmiş fotoğraf URL'leri:", {
+          placeId,
+          processedPhotosCount: photos.length,
+          photos: photos,
+        });
+        
         setPlaceDetails((prev) => ({
           ...prev!,
           address: result.formatted_address || prev?.address,
@@ -118,6 +151,15 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
         setReviewComment(""); // Formu temizle
         setReviewRating(5);
         setShowReviewForm(false);
+        setDetailedRatings({
+          lighting: 3,
+          ambiance: 3,
+          seating: 3,
+          powerOutlets: 3,
+          proximityToWater: 1,
+          smokingOption: "",
+          category: "",
+        });
       }
       
       // Fetch detailed information if not already loaded
@@ -140,11 +182,20 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                 newTags: tags,
                 allTags: newTags,
               });
-              return {
+              const updatedPlace = {
                 ...prev,
                 tags: newTags,
               };
+              
+              // Parent component'e güncellenmiş place'i bildir
+              if (onPlaceUpdate) {
+                onPlaceUpdate(prev.id, updatedPlace);
+              }
+              
+              return updatedPlace;
             });
+          } else {
+            console.warn("[DetailPanel] AI analizi boş etiket döndü");
           }
         }).catch((error) => {
           console.error("[DetailPanel] AI analizi hatası:", error);
@@ -177,7 +228,21 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     }
 
     try {
-      await submitReview(reviewRating, reviewComment.trim(), []);
+      // Detaylı rating bilgilerini comment'e JSON olarak ekle
+      const detailedInfo = {
+        lighting: detailedRatings.lighting,
+        ambiance: detailedRatings.ambiance,
+        seating: detailedRatings.seating,
+        powerOutlets: detailedRatings.powerOutlets,
+        proximityToWater: detailedRatings.proximityToWater,
+        smokingOption: detailedRatings.smokingOption,
+        category: detailedRatings.category,
+      };
+      
+      // Comment'e detaylı bilgileri ekle (JSON formatında)
+      const enrichedComment = `${reviewComment.trim()}\n\n[Detaylı Değerlendirme: ${JSON.stringify(detailedInfo)}]`;
+      
+      await submitReview(reviewRating, enrichedComment, []);
       setReviewComment("");
       setReviewRating(5);
       setShowReviewForm(false);
@@ -185,31 +250,76 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       setTimeout(() => {
         refetch();
       }, 3000);
+      
+      // Form state'lerini sıfırla
+      setDetailedRatings({
+        lighting: 3,
+        ambiance: 3,
+        seating: 3,
+        powerOutlets: 3,
+        proximityToWater: 1,
+        smokingOption: "",
+        category: "",
+      });
     } catch (error: any) {
       console.error("Yorum gönderme hatası:", error);
       alert(error?.message || "Yorum gönderilirken bir hata oluştu");
     }
-  }, [place?.id, isConnected, reviewComment, reviewRating, submitReview, refetch]);
+  }, [place?.id, isConnected, reviewComment, reviewRating, detailedRatings, submitReview, refetch]);
 
   // Photos array'ini memoize et - hooks must be called before early return
+  // Use deep comparison to maintain stable reference
   const photos = useMemo(() => {
-    if (!placeDetails) return [];
+    if (!placeDetails) {
+      photosRef.current = [];
+      return [];
+    }
     const list = placeDetails.photos?.length
       ? placeDetails.photos
       : placeDetails.photo
       ? [placeDetails.photo]
       : [];
-    return list.filter(Boolean);
-  }, [placeDetails?.photos, placeDetails?.photo]);
-
-  // Photos değiştiğinde index'i sıfırla
-  useEffect(() => {
-    if (placeDetails) {
-      if (photos.length > 0 && currentPhotoIndex >= photos.length) {
-        setCurrentPhotoIndex(0);
-      }
+    const filtered = list.filter(Boolean);
+    
+    // Deep comparison to avoid unnecessary reference changes
+    const currentStr = JSON.stringify(photosRef.current);
+    const newStr = JSON.stringify(filtered);
+    
+    if (currentStr === newStr && photosRef.current.length > 0) {
+      // Return existing reference if content is identical
+      return photosRef.current;
     }
-  }, [placeDetails, photos, currentPhotoIndex]);
+    
+    console.log("[DetailPanel] Photos memoized:", {
+      placeName: placeDetails.name,
+      photosArrayLength: placeDetails.photos?.length || 0,
+      photoString: placeDetails.photo ? "var" : "yok",
+      finalPhotosCount: filtered.length,
+      photos: filtered,
+    });
+    
+    // Update ref with new array
+    photosRef.current = filtered;
+    return filtered;
+  }, [placeDetails?.photos, placeDetails?.photo, placeDetails?.name]);
+
+  // Track previous place ID to detect actual place changes
+  const prevPlaceIdForIndexRef = useRef<string | null>(null);
+  
+  // Yeni mekan açıldığında index'i sıfırla (sadece placeDetails.id gerçekten değiştiğinde)
+  useEffect(() => {
+    if (placeDetails?.id && prevPlaceIdForIndexRef.current !== placeDetails.id) {
+      prevPlaceIdForIndexRef.current = placeDetails.id;
+      setCurrentPhotoIndex(0);
+      currentPhotoIndexRef.current = 0;
+      console.log("[DetailPanel] Place ID changed, resetting photo index to 0");
+    }
+  }, [placeDetails?.id]);
+  
+  // Sync ref with state
+  useEffect(() => {
+    currentPhotoIndexRef.current = currentPhotoIndex;
+  }, [currentPhotoIndex]);
 
   // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
   useEffect(() => {
@@ -218,10 +328,14 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsFullscreen(false);
-      } else if (e.key === "ArrowLeft" && photos.length > 1) {
-        setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
-      } else if (e.key === "ArrowRight" && photos.length > 1) {
-        setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+      } else if (e.key === "ArrowLeft" && photosRef.current.length > 1) {
+        const newIndex = (currentPhotoIndexRef.current - 1 + photosRef.current.length) % photosRef.current.length;
+        currentPhotoIndexRef.current = newIndex;
+        setCurrentPhotoIndex(newIndex);
+      } else if (e.key === "ArrowRight" && photosRef.current.length > 1) {
+        const newIndex = (currentPhotoIndexRef.current + 1) % photosRef.current.length;
+        currentPhotoIndexRef.current = newIndex;
+        setCurrentPhotoIndex(newIndex);
       }
     };
 
@@ -233,24 +347,62 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (photos.length > 1) {
-      setCurrentPhotoIndex((prev) => {
-        const newIndex = (prev - 1 + photos.length) % photos.length;
-        return newIndex;
+    
+    // Use ref to get current photos array (stable reference)
+    const currentPhotos = photosRef.current;
+    const currentIndex = currentPhotoIndexRef.current;
+    
+    console.log("[DetailPanel] handlePrevPhoto called", { 
+      photosLength: currentPhotos.length,
+      currentIndex,
+      photos: currentPhotos 
+    });
+    
+    if (currentPhotos.length > 1) {
+      const newIndex = (currentIndex - 1 + currentPhotos.length) % currentPhotos.length;
+      console.log("[DetailPanel] Önceki fotoğraf:", { 
+        prev: currentIndex, 
+        newIndex, 
+        photoUrl: currentPhotos[newIndex] 
       });
+      
+      // Update both ref and state
+      currentPhotoIndexRef.current = newIndex;
+      setCurrentPhotoIndex(newIndex);
+    } else {
+      console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, []); // No dependencies - uses refs for stable access
 
   const handleNextPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (photos.length > 1) {
-      setCurrentPhotoIndex((prev) => {
-        const newIndex = (prev + 1) % photos.length;
-        return newIndex;
+    
+    // Use ref to get current photos array (stable reference)
+    const currentPhotos = photosRef.current;
+    const currentIndex = currentPhotoIndexRef.current;
+    
+    console.log("[DetailPanel] handleNextPhoto called", { 
+      photosLength: currentPhotos.length,
+      currentIndex,
+      photos: currentPhotos 
+    });
+    
+    if (currentPhotos.length > 1) {
+      const newIndex = (currentIndex + 1) % currentPhotos.length;
+      console.log("[DetailPanel] Sonraki fotoğraf:", { 
+        prev: currentIndex, 
+        newIndex, 
+        photoUrl: currentPhotos[newIndex] 
       });
+      
+      // Update both ref and state
+      currentPhotoIndexRef.current = newIndex;
+      setCurrentPhotoIndex(newIndex);
+    } else {
+      console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, []); // No dependencies - uses refs for stable access
 
   const openFullscreen = () => {
     setIsFullscreen(true);
@@ -258,6 +410,52 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
   const closeFullscreen = () => {
     setIsFullscreen(false);
+  };
+
+  // Tag helper functions
+  const getTagCategory = (tag: string): string => {
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes("ışıklandırma") || lowerTag.includes("isiklandirma")) return "lighting";
+    if (lowerTag.includes("koltuk") || lowerTag.includes("oturma")) return "seating";
+    if (lowerTag.includes("sigara")) return "smoking";
+    if (lowerTag.includes("deniz")) return "view";
+    if (lowerTag.includes("priz")) return "power";
+    if (lowerTag.includes("retro") || lowerTag.includes("modern")) return "ambiance";
+    if (lowerTag.includes("kafe") || lowerTag.includes("restoran") || lowerTag.includes("bar")) return "category";
+    return "general";
+  };
+
+  const getTagIcon = (tag: string): string => {
+    const category = getTagCategory(tag);
+    const iconMap: { [key: string]: string } = {
+      lighting: "💡",
+      seating: "🪑",
+      smoking: "🚬",
+      view: "🌊",
+      power: "🔌",
+      ambiance: "🎨",
+      category: "📍",
+      general: "🏷️",
+    };
+    return iconMap[category] || "🏷️";
+  };
+
+  const getTagTooltip = (tag: string): string => {
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes("ışıklandırma") || lowerTag.includes("isiklandirma")) {
+      const level = tag.match(/\d+/)?.[0];
+      return level ? `Işıklandırma seviyesi: ${level}/5` : "Işıklandırma bilgisi";
+    }
+    if (lowerTag.includes("koltuk")) {
+      const level = tag.match(/\d+/)?.[0];
+      return level ? `Oturma alanı seviyesi: ${level}/3` : "Oturma alanı bilgisi";
+    }
+    if (lowerTag.includes("sigara")) return "Sigara içilebilir alan";
+    if (lowerTag.includes("deniz")) return "Deniz manzarası";
+    if (lowerTag.includes("priz")) return "Masada priz mevcut";
+    if (lowerTag.includes("retro")) return "Retro ambiyans";
+    if (lowerTag.includes("modern")) return "Modern tasarım";
+    return tag;
   };
 
   if (!isOpen || !placeDetails) return null;
@@ -283,17 +481,69 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
               Adres: {placeDetails.address}
             </div>
           )}
-          <div id="placeTags" className="tags">
-            {placeDetails.tags?.map((tag, index) => (
-              <span key={index} className="tag">
-                {tag}
-              </span>
-            ))}
-            {placeDetails.features?.map((feature, index) => (
-              <span key={`feat-${index}`} className="tag subtag">
-                {feature}
-              </span>
-            ))}
+          <div id="placeTags" className="tags-container">
+            {placeDetails.tags && placeDetails.tags.length > 0 && (
+              <div className="tags-section">
+                <div className="tags-header">
+                  <span className="tags-label">Etiketler</span>
+                  {placeDetails.tags.length > 0 && (
+                    <span className="tags-count">{placeDetails.tags.length}</span>
+                  )}
+                </div>
+                <div className="tags" role="list">
+                  {placeDetails.tags.map((tag, index) => {
+                    // AI analizi etiketlerini belirle (yeni eklenen etiketler genellikle AI'dan gelir)
+                    const isAITag = tag.includes("Işıklandırma") || 
+                                   tag.includes("Retro") || 
+                                   tag.includes("Modern") || 
+                                   tag.includes("Koltuk") || 
+                                   tag.includes("Sigara") ||
+                                   tag.includes("Deniz") ||
+                                   tag.includes("Priz");
+                    const tagCategory = getTagCategory(tag);
+                    
+                    return (
+                      <span
+                        key={`tag-${index}`}
+                        className={`tag ${isAITag ? 'tag-ai' : 'tag-default'} tag-${tagCategory}`}
+                        role="listitem"
+                        title={getTagTooltip(tag)}
+                        aria-label={`${tag} - ${getTagTooltip(tag)}`}
+                        data-tag={tag}
+                        data-category={tagCategory}
+                      >
+                        <span className="tag-icon">{getTagIcon(tag)}</span>
+                        <span className="tag-text">{tag}</span>
+                        {isAITag && (
+                          <span className="tag-badge" aria-label="AI analizi etiketi">
+                            AI
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {placeDetails.features && placeDetails.features.length > 0 && (
+              <div className="tags-section">
+                <div className="tags-header">
+                  <span className="tags-label">Özellikler</span>
+                </div>
+                <div className="tags" role="list">
+                  {placeDetails.features.map((feature, index) => (
+                    <span
+                      key={`feat-${index}`}
+                      className="tag tag-feature subtag"
+                      role="listitem"
+                      title={feature}
+                    >
+                      <span className="tag-text">{feature}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <button
@@ -308,37 +558,113 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
       {photos.length > 0 && (
         <div id="placePhoto" className="place-photo">
-          <div className="photo-gallery">
+          <div className="photo-gallery" style={{ position: "relative" }}>
             {photos.length > 1 && (
-              <button
-                className="photo-nav prev"
-                onClick={handlePrevPhoto}
-                aria-label="Önceki foto"
-                type="button"
-              >
-                &lt;
-              </button>
+              <>
+                <button
+                  className="photo-nav prev"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handlePrevPhoto(e);
+                  }}
+                  aria-label="Önceki foto"
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 100,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "40px",
+                    height: "40px",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    fontSize: "20px",
+                    fontWeight: "bold",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
+                  }}
+                >
+                  &lt;
+                </button>
+                <button
+                  className="photo-nav next"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleNextPhoto(e);
+                  }}
+                  aria-label="Sonraki foto"
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 100,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "40px",
+                    height: "40px",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    fontSize: "20px",
+                    fontWeight: "bold",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
+                  }}
+                >
+                  &gt;
+                </button>
+              </>
             )}
             <img
               className="photo-main"
-              key={photos[currentPhotoIndex] || photos[0]}
-              src={photos[currentPhotoIndex] || photos[0]}
+              key={`${placeDetails.id}-photo-${currentPhotoIndex}`}
+              src={photos[currentPhotoIndex] || photos[0] || ""}
               alt={placeDetails.name}
               loading="lazy"
               onClick={openFullscreen}
-              style={{ cursor: "pointer" }}
+              style={{ cursor: "pointer", pointerEvents: "auto" }}
+              onError={(e) => {
+                console.error("[DetailPanel] Fotoğraf yüklenemedi:", photos[currentPhotoIndex]);
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
             />
-            {photos.length > 1 && (
-              <button
-                className="photo-nav next"
-                onClick={handleNextPhoto}
-                aria-label="Sonraki foto"
-                type="button"
-              >
-                &gt;
-              </button>
-            )}
           </div>
+          {photos.length > 1 && (
+            <div style={{ 
+              marginTop: "8px", 
+              textAlign: "center", 
+              fontSize: "12px", 
+              color: "var(--muted)" 
+            }}>
+              Fotoğraf {currentPhotoIndex + 1} / {photos.length}
+            </div>
+          )}
         </div>
       )}
 
@@ -363,9 +689,13 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
           
           {/* Fotoğraf - tam ekran */}
           <img
-            key={photos[currentPhotoIndex] || photos[0]}
-            src={photos[currentPhotoIndex] || photos[0]}
+            key={`${placeDetails.id}-fullscreen-${currentPhotoIndex}`}
+            src={photos[currentPhotoIndex] || photos[0] || ""}
             alt={placeDetails.name}
+            onError={(e) => {
+              console.error("[DetailPanel] Tam ekran fotoğraf yüklenemedi:", photos[currentPhotoIndex]);
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
             onClick={(e) => {
               e.stopPropagation();
               // Fotoğrafa tıklayınca da gezin (sağ tarafta sonraki, sol tarafta önceki)
@@ -443,7 +773,11 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
           {photos.length > 1 && (
             <>
               <button
-                onClick={handlePrevPhoto}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handlePrevPhoto(e);
+                }}
                 type="button"
                 style={{
                   position: "fixed",
@@ -458,7 +792,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   height: "70px",
                   borderRadius: "50%",
                   cursor: "pointer",
-                  zIndex: 100001,
+                  zIndex: 100002,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -470,6 +804,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   padding: 0,
                   WebkitAppearance: "none",
                   appearance: "none",
+                  pointerEvents: "auto",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-50%) scale(1.15)";
@@ -484,7 +819,11 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                 &lt;
               </button>
               <button
-                onClick={handleNextPhoto}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleNextPhoto(e);
+                }}
                 type="button"
                 style={{
                   position: "fixed",
@@ -499,7 +838,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   height: "70px",
                   borderRadius: "50%",
                   cursor: "pointer",
-                  zIndex: 100001,
+                  zIndex: 100002,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -511,6 +850,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   padding: 0,
                   WebkitAppearance: "none",
                   appearance: "none",
+                  pointerEvents: "auto",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-50%) scale(1.15)";
@@ -657,39 +997,206 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
         {showReviewForm && isConnected && (
           <form onSubmit={handleSubmitReview} className="review-form" style={{ marginTop: "16px" }}>
-            <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px" }}>
-              Puan: {reviewRating} ⭐
-            </label>
-            <input
-              type="range"
-              id="reviewRating"
-              min="1"
-              max="5"
-              value={reviewRating}
-              onChange={(e) => setReviewRating(Number(e.target.value))}
-              style={{ width: "100%", marginBottom: "16px" }}
-            />
+            {/* Genel Puan */}
+            <div style={{ marginBottom: "24px" }}>
+              <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+                Genel Puan: {reviewRating} ⭐
+              </label>
+              <input
+                type="range"
+                id="reviewRating"
+                min="1"
+                max="5"
+                value={reviewRating}
+                onChange={(e) => setReviewRating(Number(e.target.value))}
+                style={{ width: "100%" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
+                <span>1 ⭐</span>
+                <span>5 ⭐</span>
+              </div>
+            </div>
 
-            <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px" }}>
-              Yorumunuz
-            </label>
-            <textarea
-              id="reviewComment"
-              value={reviewComment}
-              onChange={(e) => setReviewComment(e.target.value)}
-              rows={4}
-              placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                marginBottom: "16px",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-              required
-            />
+            {/* Detaylı Değerlendirme Kriterleri */}
+            <div className="detailed-ratings-section" style={{ marginBottom: "24px", padding: "16px", borderRadius: "12px" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
+                Detaylı Değerlendirme
+              </h4>
+
+              {/* Işıklandırma */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>💡 Işıklandırma</span>
+                  <span className="rating-value-display">{detailedRatings.lighting} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.lighting}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, lighting: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Ambiyans */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🎨 Ambiyans</span>
+                  <span className="rating-value-display">{detailedRatings.ambiance} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.ambiance}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, ambiance: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Oturma */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🪑 Oturma</span>
+                  <span className="rating-value-display">{detailedRatings.seating} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.seating}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, seating: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Priz */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🔌 Priz</span>
+                  <span className="rating-value-display">{detailedRatings.powerOutlets} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.powerOutlets}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, powerOutlets: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Yetersiz (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Deniz Yakınlığı */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🌊 Deniz Yakınlığı</span>
+                  <span className="rating-value-display">{detailedRatings.proximityToWater} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.proximityToWater}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, proximityToWater: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Uzak (1)</span>
+                  <span>Çok Yakın (5)</span>
+                </div>
+              </div>
+
+              {/* Sigara Seçenekleri */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🚬 Sigara Seçenekleri</span>
+                </label>
+                <div className="option-buttons">
+                  <button
+                    type="button"
+                    onClick={() => setDetailedRatings(prev => ({ 
+                      ...prev, 
+                      smokingOption: prev.smokingOption === "indoor_smoking" ? "" : "indoor_smoking" 
+                    }))}
+                    className={`option-button ${detailedRatings.smokingOption === "indoor_smoking" ? "active" : ""}`}
+                  >
+                    Kapalı Alanda Sigara İçilebilir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailedRatings(prev => ({ 
+                      ...prev, 
+                      smokingOption: prev.smokingOption === "non_smoking" ? "" : "non_smoking" 
+                    }))}
+                    className={`option-button ${detailedRatings.smokingOption === "non_smoking" ? "active" : ""}`}
+                  >
+                    Sigara İçilmez
+                  </button>
+                </div>
+              </div>
+
+              {/* Kategori */}
+              <div className="rating-criterion" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
+                <label className="rating-label">
+                  <span>📍 Kategori</span>
+                </label>
+                <div className="option-buttons">
+                  {["Kafe", "Restoran", "Bar"].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setDetailedRatings(prev => ({ 
+                        ...prev, 
+                        category: prev.category === cat ? "" : cat as "Kafe" | "Restoran" | "Bar"
+                      }))}
+                      className={`option-button ${detailedRatings.category === cat ? "active" : ""}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Yorum Metni */}
+            <div style={{ marginBottom: "16px" }}>
+              <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+                Yorumunuz
+              </label>
+              <textarea
+                id="reviewComment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                rows={4}
+                placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #ddd",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+                required
+              />
+            </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
               <button
@@ -706,6 +1213,15 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   setShowReviewForm(false);
                   setReviewComment("");
                   setReviewRating(5);
+                  setDetailedRatings({
+                    lighting: 3,
+                    ambiance: 3,
+                    seating: 3,
+                    powerOutlets: 3,
+                    proximityToWater: 1,
+                    smokingOption: "",
+                    category: "",
+                  });
                 }}
                 className="pill ghost"
                 disabled={isSubmitting}
