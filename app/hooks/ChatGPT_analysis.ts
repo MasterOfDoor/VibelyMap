@@ -148,47 +148,45 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   return tags;
 }
 
-// Tek bir mekan için fotoğraf analizi yap (Gemini ile, hata durumunda ChatGPT fallback)
-export async function analyzePlacePhotos(place: Place): Promise<string[]> {
-  // Fotoğraf URL'lerini topla
-  const photoUrls: string[] = [
-    ...(place.photos || []),
-    ...(place.photo ? [place.photo] : []),
-  ].filter(Boolean).slice(0, 6); // Maksimum 6 fotoğraf
+// Tek bir mekan için fotoğraf analizi yap (ChatGPT ile)
+export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<string[]> {
+  try {
+    // Fotoğraf URL'lerini topla
+    const photoUrls: string[] = [
+      ...(place.photos || []),
+      ...(place.photo ? [place.photo] : []),
+    ].filter(Boolean).slice(0, 6); // Maksimum 6 fotoğraf
 
-  if (photoUrls.length === 0) {
-    console.log("[Photo Analysis] Fotoğraf yok, analiz yapılamıyor:", place.name);
-    return [];
-  }
+    if (photoUrls.length === 0) {
+      console.log("[ChatGPT Analysis] Fotoğraf yok, analiz yapılamıyor:", place.name);
+      return [];
+    }
 
-  console.log("[Photo Analysis] Analiz başlatılıyor:", place.name, "Fotoğraf sayısı:", photoUrls.length);
+    console.log("[ChatGPT Analysis] Analiz başlatılıyor:", place.name, "Fotoğraf sayısı:", photoUrls.length);
 
-  // Fotoğrafları base64 data URL'e çevir (bir kez yap, her iki API için kullan)
-  const photoDataUrls: string[] = [];
-  for (const url of photoUrls) {
-    const dataUrl = await fetchPhotoAsDataUrl(url);
-    if (dataUrl) {
-      // Base64 kısmını al (data:image/jpeg;base64, kısmını çıkar)
-      const base64Data = dataUrl.split(",")[1];
-      if (base64Data) {
-        photoDataUrls.push(base64Data);
+    // Fotoğrafları base64 data URL'e çevir
+    const photoDataUrls: string[] = [];
+    for (const url of photoUrls) {
+      const dataUrl = await fetchPhotoAsDataUrl(url);
+      if (dataUrl) {
+        // Base64 kısmını al (data:image/jpeg;base64, kısmını çıkar)
+        const base64Data = dataUrl.split(",")[1];
+        if (base64Data) {
+          photoDataUrls.push(base64Data);
+        }
       }
     }
-  }
 
-  if (photoDataUrls.length === 0) {
-    console.warn("[Photo Analysis] Fotoğraf yüklenemedi:", place.name);
-    return [];
-  }
+    if (photoDataUrls.length === 0) {
+      console.warn("[ChatGPT Analysis] Fotoğraf yüklenemedi:", place.name);
+      return [];
+    }
 
-  // Prompt oluştur
-  const prompt = `${SYSTEM_PROMPT}\n\nŞimdi bu fotoğrafları analiz et:`;
+    // Prompt oluştur
+    const prompt = `${SYSTEM_PROMPT}\n\nŞimdi bu fotoğrafları analiz et:`;
 
-  // Önce Gemini'yi dene
-  try {
-    console.log("[Gemini Analysis] Gemini ile analiz deneniyor:", place.name);
-    
-    const response = await fetch("/api/proxy/gemini", {
+    // ChatGPT API'ye istek gönder
+    const response = await fetch("/api/proxy/chatgpt", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -201,77 +199,43 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      console.error("[Gemini Analysis] API hatası:", error);
-      throw new Error(`Gemini API failed: ${error.error || "Unknown error"}`);
+      console.error("[ChatGPT Analysis] API hatası:", error);
+      throw new Error(`ChatGPT API failed: ${error.error || "Unknown error"}`);
     }
 
     const data = await response.json();
-    const text = data.text || "";
+    const text = data.output_text || data.text || "";
 
     if (!text) {
-      throw new Error("Empty response from Gemini");
+      console.warn("[ChatGPT Analysis] Boş cevap alındı");
+      throw new Error("Empty response from ChatGPT");
     }
 
-    // Gemini response_mime_type: "application/json" kullandığı için
-    // direkt JSON parse edebiliriz
+    // JSON'u parse et
     let result: PhotoAnalysisResult;
     try {
-      result = JSON.parse(text);
+      // JSON'u temizle (eğer markdown code block içindeyse)
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith("```json")) {
+        cleanedText = cleanedText.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+      } else if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/^```\s*/, "").replace(/\s*```$/, "");
+      }
+      
+      result = JSON.parse(cleanedText);
     } catch (error) {
-      console.warn("[Gemini Analysis] JSON parse hatası:", text, error);
-      throw new Error("Invalid JSON response from Gemini");
+      console.warn("[ChatGPT Analysis] JSON parse hatası:", text, error);
+      throw new Error("Invalid JSON response from ChatGPT");
     }
 
-    console.log("[Gemini Analysis] Analiz başarıyla tamamlandı:", place.name, result);
+    console.log("[ChatGPT Analysis] Analiz tamamlandı:", place.name, result);
 
     // Sonuçları etiketlere çevir
     const tags = convertAnalysisToTags(result);
     return tags;
-  } catch (geminiError: any) {
-    // Gemini başarısız oldu, ChatGPT fallback'e geç
-    console.warn("[Gemini Analysis] Gemini başarısız, ChatGPT fallback'e geçiliyor:", geminiError.message);
-    
-    try {
-      // ChatGPT analiz fonksiyonunu import et ve kullan
-      const { analyzePlacePhotosWithChatGPT } = await import("./ChatGPT_analysis");
-      
-      console.log("[ChatGPT Analysis] ChatGPT ile analiz deneniyor:", place.name);
-      const tags = await analyzePlacePhotosWithChatGPT(place);
-      
-      console.log("[ChatGPT Analysis] Analiz başarıyla tamamlandı:", place.name);
-      return tags;
-    } catch (chatgptError: any) {
-      // Her iki API de başarısız oldu
-      console.error("[Photo Analysis] Hem Gemini hem ChatGPT başarısız:", {
-        gemini: geminiError.message,
-        chatgpt: chatgptError.message,
-      });
-      return [];
-    }
+  } catch (error: any) {
+    console.error("[ChatGPT Analysis] Hata:", error);
+    throw error; // Hata durumunda throw et ki fallback çalışmasın
   }
-}
-
-// Birden fazla mekan için toplu analiz (her mekan için ayrı API çağrısı)
-export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
-  const resultMap = new Map<string, string[]>();
-
-  console.log("[Gemini Analysis] Toplu analiz başlatılıyor:", places.length, "mekan");
-
-  // Her mekan için sırayla analiz yap
-  for (const place of places) {
-    try {
-      const tags = await analyzePlacePhotos(place);
-      if (tags.length > 0) {
-        resultMap.set(place.id, tags);
-      }
-      // Rate limiting için kısa bir bekleme
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } catch (error: any) {
-      console.error("[Gemini Analysis] Mekan analiz hatası:", place.name, error);
-    }
-  }
-
-  console.log("[Gemini Analysis] Toplu analiz tamamlandı:", resultMap.size, "sonuç");
-  return resultMap;
 }
 

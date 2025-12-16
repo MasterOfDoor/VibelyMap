@@ -31,4 +31,5 @@
   - `refactor(wallet): sadece Base Kit kullanımına geçildi`
   - `style(css): button stilleri güncellendi`
   - `chore(deps): bağımlılıklar güncellendi`
+  -Türkçe değil Ingilizce olmalı
 

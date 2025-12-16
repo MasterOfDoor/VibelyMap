@@ -175,52 +175,6 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     }
   }, [place?.id, isConnected, reviewComment, reviewRating, submitReview, refetch]);
 
-  // Photos değiştiğinde index'i sıfırla
-  useEffect(() => {
-    if (placeDetails) {
-      const newPhotos = placeDetails.photos?.length
-        ? placeDetails.photos
-        : placeDetails.photo
-        ? [placeDetails.photo]
-        : [];
-      if (newPhotos.length > 0 && currentPhotoIndex >= newPhotos.length) {
-        setCurrentPhotoIndex(0);
-      }
-    }
-  }, [placeDetails?.photos, placeDetails?.photo, currentPhotoIndex]);
-
-  // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
-  useEffect(() => {
-    if (!isFullscreen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsFullscreen(false);
-      } else if (e.key === "ArrowLeft") {
-        setCurrentPhotoIndex((prev) => {
-          const photos = placeDetails?.photos?.length
-            ? placeDetails.photos
-            : placeDetails?.photo
-            ? [placeDetails.photo]
-            : [];
-          return photos.length > 1 ? (prev - 1 + photos.length) % photos.length : prev;
-        });
-      } else if (e.key === "ArrowRight") {
-        setCurrentPhotoIndex((prev) => {
-          const photos = placeDetails?.photos?.length
-            ? placeDetails.photos
-            : placeDetails?.photo
-            ? [placeDetails.photo]
-            : [];
-          return photos.length > 1 ? (prev + 1) % photos.length : prev;
-        });
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen, placeDetails]);
-
   // Photos array'ini memoize et - hooks must be called before early return
   const photos = useMemo(() => {
     if (!placeDetails) return [];
@@ -232,34 +186,54 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     return list.filter(Boolean);
   }, [placeDetails?.photos, placeDetails?.photo]);
 
-  const prevPhoto = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    setCurrentPhotoIndex((prev) => {
-      if (photos.length > 1) {
-        const newIndex = (prev - 1 + photos.length) % photos.length;
-        console.log("Prev photo: ", prev, "->", newIndex, "photos:", photos.length);
-        return newIndex;
+  // Photos değiştiğinde index'i sıfırla
+  useEffect(() => {
+    if (placeDetails) {
+      if (photos.length > 0 && currentPhotoIndex >= photos.length) {
+        setCurrentPhotoIndex(0);
       }
-      return prev;
-    });
+    }
+  }, [placeDetails, photos, currentPhotoIndex]);
+
+  // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsFullscreen(false);
+      } else if (e.key === "ArrowLeft" && photos.length > 1) {
+        setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
+      } else if (e.key === "ArrowRight" && photos.length > 1) {
+        setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen, photos]);
+
+  // Fotoğraf navigasyon fonksiyonları
+  const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (photos.length > 1) {
+      setCurrentPhotoIndex((prev) => {
+        const newIndex = (prev - 1 + photos.length) % photos.length;
+        return newIndex;
+      });
+    }
   }, [photos]);
 
-  const nextPhoto = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-    setCurrentPhotoIndex((prev) => {
-      if (photos.length > 1) {
+  const handleNextPhoto = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (photos.length > 1) {
+      setCurrentPhotoIndex((prev) => {
         const newIndex = (prev + 1) % photos.length;
-        console.log("Next photo: ", prev, "->", newIndex, "photos:", photos.length);
         return newIndex;
-      }
-      return prev;
-    });
+      });
+    }
   }, [photos]);
 
   const openFullscreen = () => {
@@ -318,16 +292,13 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
       {photos.length > 0 && (
         <div id="placePhoto" className="place-photo">
-          <div className="photo-gallery" style={{ position: "relative" }}>
+          <div className="photo-gallery">
             {photos.length > 1 && (
               <button
                 className="photo-nav prev"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  prevPhoto(e);
-                }}
+                onClick={handlePrevPhoto}
                 aria-label="Önceki foto"
-                style={{ display: "flex" }}
+                type="button"
               >
                 &lt;
               </button>
@@ -344,12 +315,9 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
             {photos.length > 1 && (
               <button
                 className="photo-nav next"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  nextPhoto(e);
-                }}
+                onClick={handleNextPhoto}
                 aria-label="Sonraki foto"
-                style={{ display: "flex" }}
+                type="button"
               >
                 &gt;
               </button>
@@ -390,9 +358,9 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                 const clickX = e.clientX - rect.left;
                 const imageWidth = rect.width;
                 if (clickX > imageWidth / 2) {
-                  nextPhoto(e);
+                  handleNextPhoto(e as any);
                 } else {
-                  prevPhoto(e);
+                  handlePrevPhoto(e as any);
                 }
               }
             }}
@@ -459,12 +427,8 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
           {photos.length > 1 && (
             <>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  console.log("PREV CLICKED - photos.length:", photos.length, "currentIndex:", currentPhotoIndex);
-                  prevPhoto(e);
-                }}
+                onClick={handlePrevPhoto}
+                type="button"
                 style={{
                   position: "fixed",
                   left: "20px",
@@ -484,7 +448,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   justifyContent: "center",
                   fontWeight: "bold",
                   boxShadow: "0 6px 20px rgba(0,0,0,0.8)",
-                  transition: "all 0.2s",
+                  transition: "all 0.2s ease",
                   lineHeight: "1",
                   margin: 0,
                   padding: 0,
@@ -504,12 +468,8 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                 &lt;
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  console.log("NEXT CLICKED - photos.length:", photos.length, "currentIndex:", currentPhotoIndex);
-                  nextPhoto(e);
-                }}
+                onClick={handleNextPhoto}
+                type="button"
                 style={{
                   position: "fixed",
                   right: "20px",
@@ -529,7 +489,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   justifyContent: "center",
                   fontWeight: "bold",
                   boxShadow: "0 6px 20px rgba(0,0,0,0.8)",
-                  transition: "all 0.2s",
+                  transition: "all 0.2s ease",
                   lineHeight: "1",
                   margin: 0,
                   padding: 0,
