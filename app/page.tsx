@@ -288,7 +288,6 @@ export default function Home() {
             (window as any).handleMapLocation();
           }
         }}
-        shouldFitBounds={isResultsOpen && filteredPlaces.length > 0}
       />
 
       <SearchOverlay
