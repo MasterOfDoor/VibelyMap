@@ -270,3 +270,203 @@
   }
 }
 
+/* Enhanced Review Form Styles */
+.review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.review-form label {
+  color: var(--text, #2c2416);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.review-form input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 5px;
+  background: linear-gradient(to right, 
+    rgba(212, 166, 87, 0.3) 0%, 
+    rgba(212, 166, 87, 0.6) 50%, 
+    rgba(212, 166, 87, 0.9) 100%);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.review-form input[type="range"]:hover {
+  background: linear-gradient(to right, 
+    rgba(212, 166, 87, 0.4), 
+    rgba(212, 166, 87, 0.7), 
+    rgba(212, 166, 87, 1));
+}
+
+.review-form input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4a657, #c18b3c);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(212, 166, 87, 0.4);
+  transition: all 0.2s ease;
+}
+
+.review-form input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(212, 166, 87, 0.6);
+}
+
+.review-form input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4a657, #c18b3c);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(212, 166, 87, 0.4);
+  transition: all 0.2s ease;
+}
+
+.review-form input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(212, 166, 87, 0.6);
+}
+
+.review-form textarea {
+  transition: all 0.2s ease;
+  border-color: rgba(212, 166, 87, 0.3);
+}
+
+.review-form textarea:focus {
+  outline: none;
+  border-color: rgba(212, 166, 87, 0.6);
+  box-shadow: 0 0 0 3px rgba(212, 166, 87, 0.1);
+}
+
+.detailed-ratings-section {
+  background: linear-gradient(135deg, rgba(255, 252, 243, 0.5), rgba(233, 217, 186, 0.3));
+  border: 1px solid rgba(125, 103, 52, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.rating-criterion {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(212, 166, 87, 0.15);
+}
+
+.rating-criterion:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.rating-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #2c2416);
+}
+
+.rating-value-display {
+  font-size: 14px;
+  font-weight: 700;
+  color: #d4a657;
+  margin-left: auto;
+}
+
+.rating-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted, #8b7355);
+  margin-top: 4px;
+}
+
+.option-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.option-button {
+  font-size: 12px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border, rgba(212, 166, 87, 0.3));
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text, #2c2416);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.option-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 166, 87, 0.2);
+}
+
+.option-button.active {
+  background: linear-gradient(135deg, rgba(212, 166, 87, 0.2), rgba(193, 139, 60, 0.2));
+  border: 2px solid #d4a657;
+  color: #2c2416;
+  font-weight: 700;
+}
+
+/* Responsive Review Form */
+@media (max-width: 640px) {
+  .review-form {
+    gap: 12px;
+  }
+  
+  .rating-criterion {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+  
+  .rating-label {
+    font-size: 12px;
+  }
+  
+  .option-button {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .review-form {
+    gap: 10px;
+  }
+  
+  .detailed-ratings-section {
+    padding: 12px;
+  }
+  
+  .rating-criterion {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+  
+  .rating-label {
+    font-size: 11px;
+  }
+  
+  .option-buttons {
+    gap: 6px;
+  }
+  
+  .option-button {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+}
+

@@ -475,7 +475,35 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
   }
 }
 
-// Birden fazla mekan için toplu analiz (her mekan için ayrı API çağrısı)
+// Toplu cache kontrolü yap
+async function getBatchCachedTags(placeIds: string[]): Promise<{ [placeId: string]: string[] }> {
+  if (placeIds.length === 0) return {};
+  
+  try {
+    const placeIdsParam = placeIds.join(",");
+    const response = await fetch(`/api/ai-tags/batch?placeIds=${encodeURIComponent(placeIdsParam)}`);
+    
+    if (!response.ok) {
+      log.storageError("Batch cache check failed", {
+        action: "batch_cache_check_failed",
+        status: response.status,
+        placeIdsCount: placeIds.length,
+      });
+      return {};
+    }
+    
+    const data = await response.json();
+    return data.cached || {};
+  } catch (error: any) {
+    log.storageError("Batch cache check exception", {
+      action: "batch_cache_check_exception",
+      placeIdsCount: placeIds.length,
+    }, error);
+    return {};
+  }
+}
+
+// Birden fazla mekan için toplu analiz (optimize edilmiş: önce cache kontrolü, sonra sadece gerekli olanlar için analiz)
 export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
   const resultMap = new Map<string, string[]>();
 
@@ -484,21 +512,70 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     placesCount: places.length,
   });
 
-  // Her mekan için sırayla analiz yap
-  for (const place of places) {
-    try {
-      const tags = await analyzePlacePhotos(place);
-      if (tags.length > 0) {
-        resultMap.set(place.id, tags);
+  if (places.length === 0) {
+    return resultMap;
+  }
+
+  // 1. Önce toplu cache kontrolü yap
+  const placeIds = places.map(p => p.id);
+  const cachedTags = await getBatchCachedTags(placeIds);
+  
+  // Cache'den gelen tag'leri resultMap'e ekle
+  Object.entries(cachedTags).forEach(([placeId, tags]) => {
+    if (tags && tags.length > 0) {
+      resultMap.set(placeId, tags);
+      log.analysis("Using cached tags for place", {
+        action: "batch_cache_hit",
+        placeId,
+        tagsCount: tags.length,
+      });
+    }
+  });
+
+  // 2. Cache'de olmayan place'leri bul
+  const uncachedPlaces = places.filter(place => !cachedTags[place.id]);
+  
+  log.analysis("Cache check completed", {
+    action: "batch_cache_check_complete",
+    totalPlaces: places.length,
+    cachedCount: Object.keys(cachedTags).length,
+    uncachedCount: uncachedPlaces.length,
+  });
+
+  // 3. Sadece cache'de olmayan place'ler için analiz yap
+  if (uncachedPlaces.length > 0) {
+    log.analysis("Starting analysis for uncached places", {
+      action: "batch_analysis_uncached_start",
+      uncachedCount: uncachedPlaces.length,
+    });
+
+    // Paralel analiz (rate limiting için batch'ler halinde)
+    const batchSize = 3; // Aynı anda maksimum 3 analiz
+    for (let i = 0; i < uncachedPlaces.length; i += batchSize) {
+      const batch = uncachedPlaces.slice(i, i + batchSize);
+      
+      // Batch içindeki place'ler için paralel analiz
+      const batchPromises = batch.map(async (place) => {
+        try {
+          const tags = await analyzePlacePhotos(place);
+          if (tags.length > 0) {
+            resultMap.set(place.id, tags);
+          }
+        } catch (error: any) {
+          log.analysisError("Place analysis error in batch", {
+            action: "batch_analysis_error",
+            placeId: place.id,
+            placeName: place.name,
+          }, error);
+        }
+      });
+      
+      await Promise.all(batchPromises);
+      
+      // Rate limiting için batch'ler arası bekleme
+      if (i + batchSize < uncachedPlaces.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      // Rate limiting için kısa bir bekleme
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } catch (error: any) {
-      log.analysisError("Place analysis error in batch", {
-        action: "batch_analysis_error",
-        placeId: place.id,
-        placeName: place.name,
-      }, error);
     }
   }
 
@@ -506,6 +583,8 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     action: "batch_analysis_complete",
     placesCount: places.length,
     resultsCount: resultMap.size,
+    cachedCount: Object.keys(cachedTags).length,
+    analyzedCount: uncachedPlaces.length,
   });
   
   return resultMap;

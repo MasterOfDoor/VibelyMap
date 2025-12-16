@@ -102,8 +102,10 @@ export default function Home() {
       resetFilters();
       
       if (results.length > 0) {
-        // AI analizini marker tıklamasına ertele - sadece sonuçları göster
-        console.log("[handleSearch] AI analizi marker tıklamasına ertelendi");
+        // Google Places'ten place ID'leri alındı
+        // Cache kontrolü ve analiz marker tıklamasına ertelendi
+        console.log("[handleSearch] Place ID'leri alındı, AI analizi marker tıklamasına ertelendi");
+        console.log("[handleSearch] Place IDs:", results.map(r => r.id));
         setIsResultsOpen(true);
         setPlaces(results);
       }
@@ -223,10 +225,14 @@ export default function Home() {
             setIsResultsOpen(true);
           } else {
             // Diğer filtreler veya range filtreleri var, AI analizini hemen yap
+            // Önce cache kontrolü yapılacak, sadece cache'de olmayanlar için analiz yapılacak
+            console.log("[handleApplyFilters] Place ID'leri alındı:", results.map(r => r.id));
             console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT)...", results.length, "mekan için");
+            console.log("[handleApplyFilters] Önce cache kontrolü yapılacak, sonra sadece gerekli olanlar için analiz yapılacak");
             try {
               const analysisResults = await analyzePlacesPhotos(results);
               console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
+              console.log("[handleApplyFilters] Analiz edilen place ID'leri:", Array.from(analysisResults.keys()));
 
               // Analiz sonuçlarını places'lere uygula
               const enrichedResults = results.map((place) => {
@@ -252,9 +258,12 @@ export default function Home() {
               }
             } catch (error: any) {
               console.error("[handleApplyFilters] AI analizi hatası:", error);
-              // Hata durumunda orijinal sonuçları göster
+              // Hata durumunda orijinal sonuçları göster (cache'den gelenler varsa onlar kullanılabilir)
+              // Google Places sonuçları zaten mevcut, sadece AI analizi başarısız oldu
               setPlaces(results);
               setIsResultsOpen(true);
+              // Kullanıcıya bilgi ver (opsiyonel)
+              console.warn("[handleApplyFilters] AI analizi başarısız oldu, ancak mekanlar gösteriliyor");
             }
           }
         }

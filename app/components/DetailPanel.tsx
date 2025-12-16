@@ -57,6 +57,17 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  
+  // Detaylı rating kriterleri
+  const [detailedRatings, setDetailedRatings] = useState({
+    lighting: 3, // 1-5
+    ambiance: 3, // 1-5
+    seating: 3, // 1-5
+    powerOutlets: 3, // 1-5
+    proximityToWater: 1, // 1-5
+    smokingOption: "" as "" | "indoor_smoking" | "non_smoking", // "" = not selected
+    category: "" as "" | "Kafe" | "Restoran" | "Bar", // "" = not selected
+  });
 
   const loadPlaceDetails = useCallback(async (placeId: string) => {
     if (!placeId) return;
@@ -135,6 +146,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
         setReviewComment(""); // Formu temizle
         setReviewRating(5);
         setShowReviewForm(false);
+        setDetailedRatings({
+          lighting: 3,
+          ambiance: 3,
+          seating: 3,
+          powerOutlets: 3,
+          proximityToWater: 1,
+          smokingOption: "",
+          category: "",
+        });
       }
       
       // Fetch detailed information if not already loaded
@@ -203,7 +223,21 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
     }
 
     try {
-      await submitReview(reviewRating, reviewComment.trim(), []);
+      // Detaylı rating bilgilerini comment'e JSON olarak ekle
+      const detailedInfo = {
+        lighting: detailedRatings.lighting,
+        ambiance: detailedRatings.ambiance,
+        seating: detailedRatings.seating,
+        powerOutlets: detailedRatings.powerOutlets,
+        proximityToWater: detailedRatings.proximityToWater,
+        smokingOption: detailedRatings.smokingOption,
+        category: detailedRatings.category,
+      };
+      
+      // Comment'e detaylı bilgileri ekle (JSON formatında)
+      const enrichedComment = `${reviewComment.trim()}\n\n[Detaylı Değerlendirme: ${JSON.stringify(detailedInfo)}]`;
+      
+      await submitReview(reviewRating, enrichedComment, []);
       setReviewComment("");
       setReviewRating(5);
       setShowReviewForm(false);
@@ -211,11 +245,22 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
       setTimeout(() => {
         refetch();
       }, 3000);
+      
+      // Form state'lerini sıfırla
+      setDetailedRatings({
+        lighting: 3,
+        ambiance: 3,
+        seating: 3,
+        powerOutlets: 3,
+        proximityToWater: 1,
+        smokingOption: "",
+        category: "",
+      });
     } catch (error: any) {
       console.error("Yorum gönderme hatası:", error);
       alert(error?.message || "Yorum gönderilirken bir hata oluştu");
     }
-  }, [place?.id, isConnected, reviewComment, reviewRating, submitReview, refetch]);
+  }, [place?.id, isConnected, reviewComment, reviewRating, detailedRatings, submitReview, refetch]);
 
   // Photos array'ini memoize et - hooks must be called before early return
   const photos = useMemo(() => {
@@ -891,39 +936,206 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
 
         {showReviewForm && isConnected && (
           <form onSubmit={handleSubmitReview} className="review-form" style={{ marginTop: "16px" }}>
-            <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px" }}>
-              Puan: {reviewRating} ⭐
-            </label>
-            <input
-              type="range"
-              id="reviewRating"
-              min="1"
-              max="5"
-              value={reviewRating}
-              onChange={(e) => setReviewRating(Number(e.target.value))}
-              style={{ width: "100%", marginBottom: "16px" }}
-            />
+            {/* Genel Puan */}
+            <div style={{ marginBottom: "24px" }}>
+              <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+                Genel Puan: {reviewRating} ⭐
+              </label>
+              <input
+                type="range"
+                id="reviewRating"
+                min="1"
+                max="5"
+                value={reviewRating}
+                onChange={(e) => setReviewRating(Number(e.target.value))}
+                style={{ width: "100%" }}
+              />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
+                <span>1 ⭐</span>
+                <span>5 ⭐</span>
+              </div>
+            </div>
 
-            <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px" }}>
-              Yorumunuz
-            </label>
-            <textarea
-              id="reviewComment"
-              value={reviewComment}
-              onChange={(e) => setReviewComment(e.target.value)}
-              rows={4}
-              placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "8px",
-                border: "1px solid #ddd",
-                marginBottom: "16px",
-                fontFamily: "inherit",
-                resize: "vertical",
-              }}
-              required
-            />
+            {/* Detaylı Değerlendirme Kriterleri */}
+            <div className="detailed-ratings-section" style={{ marginBottom: "24px", padding: "16px", borderRadius: "12px" }}>
+              <h4 style={{ marginBottom: "16px", fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
+                Detaylı Değerlendirme
+              </h4>
+
+              {/* Işıklandırma */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>💡 Işıklandırma</span>
+                  <span className="rating-value-display">{detailedRatings.lighting} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.lighting}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, lighting: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Ambiyans */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🎨 Ambiyans</span>
+                  <span className="rating-value-display">{detailedRatings.ambiance} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.ambiance}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, ambiance: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Oturma */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🪑 Oturma</span>
+                  <span className="rating-value-display">{detailedRatings.seating} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.seating}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, seating: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Kötü (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Priz */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🔌 Priz</span>
+                  <span className="rating-value-display">{detailedRatings.powerOutlets} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.powerOutlets}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, powerOutlets: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Yetersiz (1)</span>
+                  <span>Mükemmel (5)</span>
+                </div>
+              </div>
+
+              {/* Deniz Yakınlığı */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🌊 Deniz Yakınlığı</span>
+                  <span className="rating-value-display">{detailedRatings.proximityToWater} ⭐</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={detailedRatings.proximityToWater}
+                  onChange={(e) => setDetailedRatings(prev => ({ ...prev, proximityToWater: Number(e.target.value) }))}
+                  style={{ width: "100%" }}
+                />
+                <div className="rating-range-labels">
+                  <span>Uzak (1)</span>
+                  <span>Çok Yakın (5)</span>
+                </div>
+              </div>
+
+              {/* Sigara Seçenekleri */}
+              <div className="rating-criterion">
+                <label className="rating-label">
+                  <span>🚬 Sigara Seçenekleri</span>
+                </label>
+                <div className="option-buttons">
+                  <button
+                    type="button"
+                    onClick={() => setDetailedRatings(prev => ({ 
+                      ...prev, 
+                      smokingOption: prev.smokingOption === "indoor_smoking" ? "" : "indoor_smoking" 
+                    }))}
+                    className={`option-button ${detailedRatings.smokingOption === "indoor_smoking" ? "active" : ""}`}
+                  >
+                    Kapalı Alanda Sigara İçilebilir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailedRatings(prev => ({ 
+                      ...prev, 
+                      smokingOption: prev.smokingOption === "non_smoking" ? "" : "non_smoking" 
+                    }))}
+                    className={`option-button ${detailedRatings.smokingOption === "non_smoking" ? "active" : ""}`}
+                  >
+                    Sigara İçilmez
+                  </button>
+                </div>
+              </div>
+
+              {/* Kategori */}
+              <div className="rating-criterion" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
+                <label className="rating-label">
+                  <span>📍 Kategori</span>
+                </label>
+                <div className="option-buttons">
+                  {["Kafe", "Restoran", "Bar"].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setDetailedRatings(prev => ({ 
+                        ...prev, 
+                        category: prev.category === cat ? "" : cat as "Kafe" | "Restoran" | "Bar"
+                      }))}
+                      className={`option-button ${detailedRatings.category === cat ? "active" : ""}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Yorum Metni */}
+            <div style={{ marginBottom: "16px" }}>
+              <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+                Yorumunuz
+              </label>
+              <textarea
+                id="reviewComment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                rows={4}
+                placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #ddd",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                }}
+                required
+              />
+            </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
               <button
@@ -940,6 +1152,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                   setShowReviewForm(false);
                   setReviewComment("");
                   setReviewRating(5);
+                  setDetailedRatings({
+                    lighting: 3,
+                    ambiance: 3,
+                    seating: 3,
+                    powerOutlets: 3,
+                    proximityToWater: 1,
+                    smokingOption: "",
+                    category: "",
+                  });
                 }}
                 className="pill ghost"
                 disabled={isSubmitting}
