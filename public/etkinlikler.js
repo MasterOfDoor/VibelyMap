@@ -2,6 +2,8 @@
     // Etkinlikler modulu: etkinlik CRUD, liste/marker, mod degisimi, event panel eventleri.
     const EVENTS_DISABLED = true; // Pasif moda al
     const eventOptionsBox = document.getElementById("eventOptions");
+    // eventPanel script.js'de tanımlı, global scope'tan eriş
+    const eventPanel = document.getElementById("eventPanel");
 
     function resetEventLocation() {
         selectedEventLocation = null;

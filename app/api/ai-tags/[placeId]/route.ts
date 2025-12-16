@@ -2,11 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
 import { log } from "@/app/utils/logger";
 
-// Upstash Redis client
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+// Upstash Redis client - conditional initialization
+let redis: Redis | null = null;
+
+function getRedisClient(): Redis | null {
+  if (redis) return redis;
+  
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (!url || !token) {
+    log.storage("Upstash Redis credentials not found, caching disabled", {
+      action: "redis_init_skip",
+      hasUrl: !!url,
+      hasToken: !!token,
+    });
+    return null;
+  }
+  
+  try {
+    redis = new Redis({
+      url: url,
+      token: token,
+    });
+    log.storage("Upstash Redis client initialized", {
+      action: "redis_init_success",
+    });
+    return redis;
+  } catch (error: any) {
+    log.storageError("Failed to initialize Redis client", {
+      action: "redis_init_error",
+    }, error);
+    return null;
+  }
+}
 
 // CORS headers
 function setCorsHeaders(response: NextResponse) {
@@ -37,13 +66,24 @@ export async function GET(
     }
 
     // Upstash Redis'ten etiketleri oku
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      log.storage("Redis not available, returning null", {
+        action: "cache_read_skip",
+        placeId,
+      });
+      return setCorsHeaders(
+        NextResponse.json({ tags: null, cached: false })
+      );
+    }
+    
     log.storage("Reading tags from cache", {
       action: "cache_read",
       placeId,
     });
     
     const startTime = Date.now();
-    const tags = await redis.get<string[]>(`ai-tags:${placeId}`);
+    const tags = await redisClient.get<string[]>(`ai-tags:${placeId}`);
     const duration = Date.now() - startTime;
     
     if (tags && Array.isArray(tags) && tags.length > 0) {
@@ -107,6 +147,19 @@ export async function POST(
     }
 
     // Upstash Redis'e etiketleri kaydet (30 gün TTL)
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      log.storage("Redis not available, skipping cache write", {
+        action: "cache_write_skip",
+        placeId,
+        tagsCount: tags.length,
+      });
+      // Redis yoksa bile başarılı dön (fallback)
+      return setCorsHeaders(
+        NextResponse.json({ success: true, placeId, tags, cached: false })
+      );
+    }
+    
     log.storage("Saving tags to cache", {
       action: "cache_write",
       placeId,
@@ -115,7 +168,7 @@ export async function POST(
     });
     
     const startTime = Date.now();
-    await redis.set(`ai-tags:${placeId}`, tags, { ex: 86400 * 30 });
+    await redisClient.set(`ai-tags:${placeId}`, tags, { ex: 86400 * 30 });
     const duration = Date.now() - startTime;
     
     log.storage("Tags saved to cache successfully", {

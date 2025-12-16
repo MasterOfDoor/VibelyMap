@@ -371,8 +371,8 @@ let userCoords = null;
 const friendRequestStorageKey = "friendRequests_v1";
 const reviewsStorageKey = "reviewsData_v1";
 
-// Leaflet haritasi
-const map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
+// Leaflet haritasi - DOMContentLoaded içinde initialize edilecek
+let map = null;
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -2148,6 +2148,19 @@ btnKonum.addEventListener("click", () => centerOnUser());
 
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Leaflet haritasi initialize et
+    if (typeof L !== "undefined") {
+        map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
+        
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+        L.control.zoom({ position: "topright" }).addTo(map);
+    } else {
+        console.error("Leaflet (L) is not defined. Make sure Leaflet script is loaded before script.js");
+    }
+    
     loadUsers();
     loadReviews();
     loadSession();

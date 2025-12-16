@@ -211,6 +211,7 @@ export async function GET(request: NextRequest) {
       
       // FieldMask: Google Places API (New) için field mask
       // photos field'ı tüm fotoğrafları getirir (max 10 fotoğraf)
+      // reviews field'ı nested olduğu için reviews.authorAttribution, reviews.text, reviews.rating şeklinde belirtilmeli
       const fieldMask = [
         "id",
         "displayName",
@@ -223,7 +224,10 @@ export async function GET(request: NextRequest) {
         "types",
         "rating",
         "userRatingCount",
-        "reviews", // Tüm review bilgileri
+        "reviews.authorAttribution",
+        "reviews.text",
+        "reviews.rating",
+        "reviews.publishTime",
       ].join(",");
       
       const url = `https://places.googleapis.com/v1/${normalizedId}`;

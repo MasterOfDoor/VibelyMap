@@ -92,8 +92,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Gemini API'ye istek gönder
-    // Alternatif endpoint: https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // Model: gemini-1.5-flash (daha hızlı ve ucuz) veya gemini-1.5-pro-latest (daha güçlü)
+    // v1beta endpoint'i için gemini-1.5-flash kullanıyoruz
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     log.gemini("Preparing API request", {
       action: "prepare_request",
