@@ -68,12 +68,61 @@ function matchesCategoryOption(place: Place, option: string): boolean {
 }
 
 function matchesFilters(place: Place, filters: FilterState): boolean {
-  const { main, sub } = filters;
-  const hasFilters = main.length > 0 || Object.keys(sub).some(
-    (key) => sub[key].length > 0
-  );
+  const { main, sub, ranges } = filters;
+  const hasFilters = main.length > 0 || 
+    Object.keys(sub).some((key) => sub[key].length > 0) ||
+    (ranges && Object.keys(ranges).length > 0);
 
   if (!hasFilters) return true;
+
+  // Check range filters (Isiklandirma and Oturma)
+  if (ranges) {
+    // Işıklandırma filtresi (1-5)
+    if (ranges.Isiklandirma !== undefined) {
+      const placeIsikTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("ışıklandırma") || tag.toLowerCase().includes("isiklandirma")
+      );
+      if (placeIsikTag) {
+        // Etiketten sayıyı çıkar: "Işıklandırma 3" -> 3
+        const match = placeIsikTag.match(/\d+/);
+        if (match) {
+          const placeIsikValue = Number(match[0]);
+          // Kullanıcının seçtiği değerden küçük veya eşit olmalı (daha loş = daha yüksek sayı)
+          // Örnek: Kullanıcı 3 seçtiyse, mekan 3, 4 veya 5 olabilir (daha loş veya eşit)
+          if (placeIsikValue < ranges.Isiklandirma) return false;
+        }
+      }
+      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
+    }
+    
+    // Koltuk filtresi (0-3)
+    if (ranges.Oturma !== undefined) {
+      const placeKoltukTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("koltuk")
+      );
+      if (placeKoltukTag) {
+        // Etiketten sayıyı çıkar veya metin kontrolü yap
+        let placeKoltukValue = -1;
+        const lowerTag = placeKoltukTag.toLowerCase();
+        if (lowerTag.includes("yok")) placeKoltukValue = 0;
+        else if (lowerTag.includes("az")) placeKoltukValue = 1;
+        else if (lowerTag.includes("orta")) placeKoltukValue = 2;
+        else if (lowerTag.includes("var") && !lowerTag.includes("az") && !lowerTag.includes("orta")) placeKoltukValue = 3;
+        
+        const match = placeKoltukTag.match(/\d+/);
+        if (match) {
+          placeKoltukValue = Number(match[0]);
+        }
+        
+        if (placeKoltukValue >= 0) {
+          // Kullanıcının seçtiği değerden küçük veya eşit olmalı
+          // Örnek: Kullanıcı 2 seçtiyse, mekan 2 veya 3 olabilir (daha fazla veya eşit)
+          if (placeKoltukValue < ranges.Oturma) return false;
+        }
+      }
+      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
+    }
+  }
 
   // Check main filters
   if (main.length > 0) {
@@ -83,6 +132,11 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
   // Check sub filters
   for (const [criterion, selectedOptions] of Object.entries(sub)) {
     if (selectedOptions.length === 0) continue;
+
+    // Isiklandirma and Oturma are handled by ranges, skip here
+    if (criterion === "Isiklandirma" || criterion === "Oturma") {
+      continue;
+    }
 
     // Special handling for Kategori
     if (criterion === "Kategori") {

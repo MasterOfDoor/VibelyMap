@@ -242,24 +242,40 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    console.log("[DetailPanel] handlePrevPhoto:", {
+      currentIndex: currentPhotoIndex,
+      photosLength: photos.length,
+      photos: photos,
+    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev - 1 + photos.length) % photos.length;
+        console.log("[DetailPanel] Önceki fotoğraf:", { prev, newIndex, photoUrl: photos[newIndex] });
         return newIndex;
       });
+    } else {
+      console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, [photos, currentPhotoIndex]);
 
   const handleNextPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    console.log("[DetailPanel] handleNextPhoto:", {
+      currentIndex: currentPhotoIndex,
+      photosLength: photos.length,
+      photos: photos,
+    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev + 1) % photos.length;
+        console.log("[DetailPanel] Sonraki fotoğraf:", { prev, newIndex, photoUrl: photos[newIndex] });
         return newIndex;
       });
+    } else {
+      console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, [photos, currentPhotoIndex]);
 
   const openFullscreen = () => {
     setIsFullscreen(true);
@@ -356,12 +372,16 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
             )}
             <img
               className="photo-main"
-              key={photos[currentPhotoIndex] || photos[0]}
-              src={photos[currentPhotoIndex] || photos[0]}
+              key={`${placeDetails.id}-photo-${currentPhotoIndex}`}
+              src={photos[currentPhotoIndex] || photos[0] || ""}
               alt={placeDetails.name}
               loading="lazy"
               onClick={openFullscreen}
               style={{ cursor: "pointer" }}
+              onError={(e) => {
+                console.error("[DetailPanel] Fotoğraf yüklenemedi:", photos[currentPhotoIndex]);
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
             />
           </div>
           {photos.length > 1 && (
@@ -398,9 +418,13 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
           
           {/* Fotoğraf - tam ekran */}
           <img
-            key={photos[currentPhotoIndex] || photos[0]}
-            src={photos[currentPhotoIndex] || photos[0]}
+            key={`${placeDetails.id}-fullscreen-${currentPhotoIndex}`}
+            src={photos[currentPhotoIndex] || photos[0] || ""}
             alt={placeDetails.name}
+            onError={(e) => {
+              console.error("[DetailPanel] Tam ekran fotoğraf yüklenemedi:", photos[currentPhotoIndex]);
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
             onClick={(e) => {
               e.stopPropagation();
               // Fotoğrafa tıklayınca da gezin (sağ tarafta sonraki, sol tarafta önceki)

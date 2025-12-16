@@ -5,10 +5,10 @@ import { Place } from "../components/DetailPanel";
 const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görevin, verilen FOTOĞRAFLARDA sadece kesin olarak gördüğün bilgileri çıkarmaktır. EMİN OLMADIĞIN HİÇBİR BİLGİ İÇİN ALAN OLUŞTURMA, TAHMİN YAPMA.
 
 ÇIKTI ALANLARI (sadece gördüğün net kanıta göre doldur):
-- mekan_isiklandirma: "los" | "canli" | "dogal"
+- mekan_isiklandirma: 1 | 2 | 3 | 4 | 5
 - ambiyans: { "retro": true/false, "modern": true/false }
 - masada_priz_var_mi: true
-- koltuk_var_mi: true
+- koltuk_var_mi: 0 | 1 | 2 | 3
 - sigara_iciliyor: true
 - sigara_alani: ["acik", "kapali"]
 - deniz_manzarasi: true
@@ -16,19 +16,22 @@ const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görev
 KURALLAR:
 - Emin değilsen ilgili alanı HİÇ yazma.
 - Sigara: sadece kanıt varsa yaz; açık/kapalı alan ayrımını sigara_alani listesinde belirt.
-- Loş = düşük ışık; Canlı = parlak/yapay; Doğal = belirgin gün ışığı.
+- Mekan ışıklandırması için 1 canlı, 3 doğal, 5 loş olacak biçimde ara değer olursa ara değer verebilir.
+- Koltuk için 0 yok, 1 az, 2 orta, 3 mekan genelinde koltuk var.
 - Ambiyans retro/modern boolean; ikisi de yoksa ambiyans alanını yazma.
+- Deniz varlığı için kesin kanıt ara ışık yansıması yetersiz.
+- Fotoğrafın sabah olması Canlı veya doğal olduğu anlamına gelmez daha iyi analiz için diğer fotoğraflarıda incele.
 
 ÇIKTI: Her zaman tek bir JSON nesnesi döndür, JSON dışında hiçbir şey yazma.`;
 
 interface PhotoAnalysisResult {
-  mekan_isiklandirma?: "los" | "canli" | "dogal";
+  mekan_isiklandirma?: 1 | 2 | 3 | 4 | 5;
   ambiyans?: {
     retro?: boolean;
     modern?: boolean;
   };
   masada_priz_var_mi?: boolean;
-  koltuk_var_mi?: boolean;
+  koltuk_var_mi?: 0 | 1 | 2 | 3;
   sigara_iciliyor?: boolean;
   sigara_alani?: ("acik" | "kapali")[];
   deniz_manzarasi?: boolean;
@@ -104,13 +107,12 @@ async function fetchPhotoAsDataUrl(url: string): Promise<string | null> {
 function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   const tags: string[] = [];
 
-  // Işıklandırma
-  if (result.mekan_isiklandirma === "los") {
-    tags.push("Los");
-  } else if (result.mekan_isiklandirma === "canli") {
-    tags.push("Canli");
-  } else if (result.mekan_isiklandirma === "dogal") {
-    tags.push("Dogal");
+  // Işıklandırma (1-5 arası değer)
+  if (typeof result.mekan_isiklandirma === "number") {
+    const isikValue = result.mekan_isiklandirma;
+    if (isikValue >= 1 && isikValue <= 5) {
+      tags.push(`Işıklandırma ${isikValue}`);
+    }
   }
 
   // Ambiyans
@@ -126,9 +128,18 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
     tags.push("Masada priz");
   }
 
-  // Koltuk
-  if (result.koltuk_var_mi) {
-    tags.push("Koltuk var");
+  // Koltuk (0-3 arası değer)
+  if (typeof result.koltuk_var_mi === "number") {
+    const koltukValue = result.koltuk_var_mi;
+    if (koltukValue === 0) {
+      tags.push("Koltuk yok");
+    } else if (koltukValue === 1) {
+      tags.push("Koltuk az");
+    } else if (koltukValue === 2) {
+      tags.push("Koltuk orta");
+    } else if (koltukValue === 3) {
+      tags.push("Koltuk var");
+    }
   }
 
   // Sigara

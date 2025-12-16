@@ -19,7 +19,22 @@
             sub[crit] = sub[crit] || [];
             sub[crit].push(opt);
         });
-        return { main, sub };
+        
+        // Range input'ları oku (Isiklandirma ve Oturma için)
+        const ranges = {};
+        const isiklandirmaRange = filterForm.querySelector('input[type="range"][data-criterion="Isiklandirma"]') || 
+                                  filterForm.querySelector('.filter-group[data-criterion="Isiklandirma"] input[type="range"]');
+        if (isiklandirmaRange) {
+            ranges.Isiklandirma = Number(isiklandirmaRange.value);
+        }
+        
+        const oturmaRange = filterForm.querySelector('input[type="range"][data-criterion="Oturma"]') || 
+                            filterForm.querySelector('.filter-group[data-criterion="Oturma"] input[type="range"]');
+        if (oturmaRange) {
+            ranges.Oturma = Number(oturmaRange.value);
+        }
+        
+        return { main, sub, ranges };
     }
 
     function buildQueryFromFilters(main, sub) {
@@ -75,12 +90,67 @@
         return Array.from(expanded);
     }
 
-    function matchesFilters(place, main, sub) {
+    function matchesFilters(place, main, sub, ranges) {
+        // Range filtreleri kontrol et (Isiklandirma ve Oturma)
+        if (ranges) {
+            // Işıklandırma filtresi (1-5)
+            if (ranges.Isiklandirma !== undefined) {
+                const placeIsikTag = (place.tags || []).find((tag) => 
+                    tag.toLowerCase().includes("ışıklandırma") || tag.toLowerCase().includes("isiklandirma")
+                );
+                if (placeIsikTag) {
+                    // Etiketten sayıyı çıkar: "Işıklandırma 3" -> 3
+                    const match = placeIsikTag.match(/\d+/);
+                    if (match) {
+                        const placeIsikValue = Number(match[0]);
+                        // Kullanıcının seçtiği değerden küçük veya eşit olmalı (daha loş = daha yüksek sayı)
+                        // Örnek: Kullanıcı 3 seçtiyse, mekan 3, 4 veya 5 olabilir (daha loş veya eşit)
+                        if (placeIsikValue < ranges.Isiklandirma) return false;
+                    }
+                } else {
+                    // Etiket yoksa, filtreleme yapma (veri eksik)
+                }
+            }
+            
+            // Koltuk filtresi (0-3)
+            if (ranges.Oturma !== undefined) {
+                const placeKoltukTag = (place.tags || []).find((tag) => 
+                    tag.toLowerCase().includes("koltuk")
+                );
+                if (placeKoltukTag) {
+                    // Etiketten sayıyı çıkar veya metin kontrolü yap
+                    let placeKoltukValue = -1;
+                    const lowerTag = placeKoltukTag.toLowerCase();
+                    if (lowerTag.includes("yok")) placeKoltukValue = 0;
+                    else if (lowerTag.includes("az")) placeKoltukValue = 1;
+                    else if (lowerTag.includes("orta")) placeKoltukValue = 2;
+                    else if (lowerTag.includes("var") && !lowerTag.includes("az") && !lowerTag.includes("orta")) placeKoltukValue = 3;
+                    
+                    const match = placeKoltukTag.match(/\d+/);
+                    if (match) {
+                        placeKoltukValue = Number(match[0]);
+                    }
+                    
+                    if (placeKoltukValue >= 0) {
+                        // Kullanıcının seçtiği değerden küçük veya eşit olmalı
+                        // Örnek: Kullanıcı 2 seçtiyse, mekan 2 veya 3 olabilir (daha fazla veya eşit)
+                        if (placeKoltukValue < ranges.Oturma) return false;
+                    }
+                } else {
+                    // Etiket yoksa, filtreleme yapma (veri eksik)
+                }
+            }
+        }
+        
         const subEntries = Object.entries(sub);
         if (subEntries.length) {
             for (const [crit, opts] of subEntries) {
                 if (crit === "Sigara" && (!opts || !opts.length)) {
                     // Sigara filtresi secilmediyse GPT'den gelen sigara etiketlerine bakma
+                    continue;
+                }
+                // Isiklandirma ve Oturma range ile kontrol edildi, burada atla
+                if (crit === "Isiklandirma" || crit === "Oturma") {
                     continue;
                 }
                 const placeOpts = (place.subOptions && place.subOptions[crit]) || [];
@@ -110,6 +180,21 @@
         filterForm.querySelectorAll(".filter-main.active").forEach((btn) => btn.classList.remove("active"));
         filterForm.querySelectorAll(".chip-option.active").forEach((btn) => btn.classList.remove("active"));
         filterForm.querySelectorAll(".filter-group.open").forEach((group) => group.classList.remove("open"));
+        // Range input'ları sıfırla
+        const isiklandirmaRange = filterForm.querySelector('input[type="range"][data-criterion="Isiklandirma"]') || 
+                                  filterForm.querySelector('.filter-group[data-criterion="Isiklandirma"] input[type="range"]');
+        if (isiklandirmaRange) {
+            isiklandirmaRange.value = "3";
+            const valueSpan = isiklandirmaRange.parentElement?.querySelector(".value");
+            if (valueSpan) valueSpan.textContent = "3";
+        }
+        const oturmaRange = filterForm.querySelector('input[type="range"][data-criterion="Oturma"]') || 
+                            filterForm.querySelector('.filter-group[data-criterion="Oturma"] input[type="range"]');
+        if (oturmaRange) {
+            oturmaRange.value = "0";
+            const valueSpan = oturmaRange.parentElement?.querySelector(".value");
+            if (valueSpan) valueSpan.textContent = "0";
+        }
     }
 
     async function prefetchLabelsForPlaces(list) {
@@ -166,8 +251,8 @@
         });
 
         applyFiltersBtn?.addEventListener("click", async () => {
-            const { main, sub } = getSelectedFilters();
-            const hasFilters = main.length || Object.keys(sub).length;
+            const { main, sub, ranges } = getSelectedFilters();
+            const hasFilters = main.length || Object.keys(sub).length || (ranges && Object.keys(ranges).length > 0);
             const selectedCategories = sub.Kategori || [];
             if (!selectedCategories.length) {
                 showToast("Lutfen kategori sec.");
@@ -210,6 +295,10 @@
                     if (!visible || !visible.length) {
                         showToast("Sonuc bulunamadi.");
                         return;
+                    }
+                    // Range filtrelerini de uygula
+                    if (ranges && Object.keys(ranges).length > 0) {
+                        visible = visible.filter((place) => matchesFilters(place, main, sub, ranges));
                     }
                     prefetchLabelsForPlaces(visible);
                     renderEventMarkers?.();
