@@ -83,36 +83,13 @@ export default function Home() {
       resetFilters();
       
       if (results.length > 0) {
-        // AI analizini hemen yap (arama sonrası)
-        console.log("[handleSearch] Gemini analizi başlatılıyor...", results.length, "mekan için");
-        try {
-          const analysisResults = await analyzePlacesPhotos(results);
-          console.log("[handleSearch] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
-
-          // Analiz sonuçlarını places'lere uygula
-          const enrichedResults = results.map((place) => {
-            const analysisTags = analysisResults.get(place.id);
-            if (analysisTags && analysisTags.length > 0) {
-              console.log("[handleSearch] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
-              return {
-                ...place,
-                tags: [...(place.tags || []), ...analysisTags],
-              };
-            }
-            return place;
-          });
-
-          setIsResultsOpen(true);
-          setPlaces(enrichedResults);
-        } catch (error: any) {
-          console.error("[handleSearch] Gemini analizi hatası:", error);
-          // Hata durumunda orijinal sonuçları göster
-          setIsResultsOpen(true);
-          setPlaces(results);
-        }
+        // AI analizini marker tıklamasına ertele - sadece sonuçları göster
+        console.log("[handleSearch] AI analizi marker tıklamasına ertelendi");
+        setIsResultsOpen(true);
+        setPlaces(results);
       }
     },
-    [performSearch, resetFilters, setPlaces, analyzePlacesPhotos]
+    [performSearch, resetFilters, setPlaces]
   );
 
   const handleApplyFilters = useCallback(
