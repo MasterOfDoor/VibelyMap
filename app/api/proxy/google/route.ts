@@ -204,8 +204,31 @@ export async function GET(request: NextRequest) {
 
       // Place Details (New) - GET request
       // Place ID formatını kontrol et ve normalize et
-      let normalizedId = placeId;
-      if (!normalizedId.startsWith("places/")) {
+      // Google Places API (New) place_id formatı: places/ChIJ... veya sadece ChIJ...
+      let normalizedId = placeId.trim();
+      
+      // Eğer zaten places/ ile başlıyorsa, tekrar ekleme
+      // Ama eğer places/PLACE_ID/photos/... formatındaysa (photo reference) sadece place ID'yi al
+      if (normalizedId.includes("/photos/")) {
+        // Photo reference formatından place ID'yi çıkar
+        const placeIdMatch = normalizedId.match(/places\/([^/]+)/);
+        if (placeIdMatch) {
+          normalizedId = `places/${placeIdMatch[1]}`;
+        } else {
+          // Photo reference içinde place ID bulunamadı, hata
+          return setCorsHeaders(NextResponse.json(
+            { error: "invalid_place_id_format", placeId },
+            { status: 400 }
+          ));
+        }
+      } else if (normalizedId.startsWith("places/")) {
+        // Zaten places/ ile başlıyor, olduğu gibi kullan
+        // Ama places/places/ gibi tekrarlı prefix kontrolü yap
+        if (normalizedId.startsWith("places/places/")) {
+          normalizedId = normalizedId.replace(/^places\//, "");
+        }
+      } else {
+        // places/ ile başlamıyorsa ekle
         normalizedId = `places/${normalizedId}`;
       }
       
@@ -250,15 +273,30 @@ export async function GET(request: NextRequest) {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
+        const errorText = await response.text();
+        let error;
+        try {
+          error = JSON.parse(errorText);
+        } catch {
+          error = { error: { message: errorText || "Unknown error" } };
+        }
+        
         console.error("[Google Details] Error:", {
           status: response.status,
+          statusText: response.statusText,
           error: error.error || error,
+          errorText: errorText.substring(0, 200),
           placeId,
           normalizedId,
+          url,
         });
+        
         return setCorsHeaders(NextResponse.json(
-          { error: error.error?.message || error.message || "Place details failed" },
+          { 
+            error: error.error?.message || error.message || "Place details failed",
+            detail: error.error || error,
+            placeId,
+          },
           { status: response.status }
         ));
       }
@@ -333,8 +371,23 @@ export async function GET(request: NextRequest) {
       // According to Google Places API documentation:
       // GET https://places.googleapis.com/v1/PHOTO_NAME?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
       // Note: Use photo name directly (no /media endpoint)
-      const decoded = decodeURIComponent(ref);
-      const photoName = decoded.startsWith("places/") ? decoded : decoded;
+      let decoded = decodeURIComponent(ref);
+      
+      // Eğer ref sadece photo resource ID ise, places/PLACE_ID/photos/ formatına çevir
+      // Ama genelde ref zaten places/PLACE_ID/photos/PHOTO_ID formatında gelir
+      let photoName = decoded;
+      
+      // Eğer ref sadece photo resource ID ise (places/ ile başlamıyorsa)
+      // Bu durumda place ID'yi bilmiyoruz, bu bir hata olmalı
+      // Ama genelde ref zaten tam path olarak gelir
+      if (!photoName.startsWith("places/")) {
+        console.warn("[Google Photo] Photo reference does not start with 'places/':", photoName);
+        // Fotoğraf referansı geçersiz format, hata döndür
+        return setCorsHeaders(NextResponse.json(
+          { error: "invalid_photo_reference_format", ref: photoName },
+          { status: 400 }
+        ));
+      }
       
       // Build URL with query parameters (API key in query params as per documentation)
       const urlParams = new URLSearchParams({
