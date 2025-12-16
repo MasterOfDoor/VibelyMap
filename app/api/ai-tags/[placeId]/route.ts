@@ -88,10 +88,11 @@ export async function POST(
   { params }: { params: { placeId: string } }
 ) {
   const { placeId } = params;
+  let tags: string[] | undefined;
   
   try {
     const body = await request.json();
-    const { tags } = body;
+    tags = body.tags;
 
     if (!placeId) {
       return setCorsHeaders(
