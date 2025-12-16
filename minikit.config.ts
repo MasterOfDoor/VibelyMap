@@ -29,8 +29,8 @@ export const minikitConfig = {
     tags: ["harita", "maps", "places", "location", "base"],
     heroImageUrl: `${ROOT_URL}/v.png`,
     tagline: "Yakın mekanları keşfet",
-    ogTitle: "Harita - Yakın Mekanları Keşfet",
-    ogDescription: "Yakın mekanları keşfetmek için Base blockchain üzerinde çalışan harita uygulaması.",
+    ogTitle: "Hislerine göre keşfet",
+    ogDescription: "Hislere göre keşfetmek için Base blockchain üzerinde çalışan harita uygulaması.",
     ogImageUrl: `${ROOT_URL}/imageurl23.png`,
   },
 } as const;
