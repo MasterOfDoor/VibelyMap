@@ -15,7 +15,7 @@ export const minikitConfig = {
   },
   miniapp: {
     version: "1",
-    name: "Harita",
+    name: "VibelyMap",
     subtitle: "Mekanları keşfet",
     description: "Yakın mekanları keşfetmek için Base blockchain üzerinde çalışan harita uygulaması.",
     screenshotUrls: [],
