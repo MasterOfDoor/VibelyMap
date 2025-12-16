@@ -225,7 +225,7 @@
         menuToggle?.addEventListener("click", () => filterPanel.classList.toggle("open"));
         closeFilter?.addEventListener("click", () => filterPanel.classList.remove("open"));
 
-        const singleSelectCriteria = new Set(["Isiklandirma", "Fiyat", "Ambiyans", "Oturma", "Yemek", "Priz"]);
+        const singleSelectCriteria = new Set(["Isiklandirma", "Ambiyans", "Oturma"]); // Priz artık range input
 
         filterForm?.addEventListener("click", (e) => {
             const mainBtn = e.target.closest(".filter-main");
@@ -300,7 +300,20 @@
                     if (ranges && Object.keys(ranges).length > 0) {
                         visible = visible.filter((place) => matchesFilters(place, main, sub, ranges));
                     }
-                    prefetchLabelsForPlaces(visible);
+                    
+                    // Diğer filtreler var mı kontrol et (Kategori dışında)
+                    const otherFilters = Object.keys(sub).filter(
+                        (key) => key !== "Kategori" && sub[key].length > 0
+                    );
+                    const hasRangeFilters = ranges && Object.keys(ranges).length > 0;
+                    
+                    // Sadece kategori seçildiyse analiz yapma (marker tıklamasına ertele)
+                    // Diğer filtreler veya range filtreleri varsa analiz yap
+                    if (otherFilters.length > 0 || hasRangeFilters) {
+                        prefetchLabelsForPlaces(visible);
+                    }
+                    // Sadece kategori seçildiyse prefetchLabelsForPlaces çağrılmayacak
+                    
                     renderEventMarkers?.();
                     renderEventList?.();
                 })

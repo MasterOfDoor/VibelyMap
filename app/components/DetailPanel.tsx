@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useProxy } from "../hooks/useProxy";
 import { useReviews, BlockchainReview } from "../hooks/useReviews";
 import { useSmartWallet } from "../hooks/useSmartWallet";
-import { analyzePlacePhotos } from "../hooks/Gemini_analysis";
+import { analyzePlacePhotos } from "../hooks/ChatGPT_analysis";
 
 export interface Place {
   id: string;
@@ -103,8 +103,15 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       const isNewPlace = prevPlaceIdRef.current !== place.id;
       prevPlaceIdRef.current = place.id;
       
-      setPlaceDetails(place);
-      setCurrentPhotoIndex(0); // Her yeni mekan açıldığında ilk fotoğrafa dön
+      // Place objesini güncelle (tags dahil tüm bilgileri)
+      setPlaceDetails({
+        ...place,
+        tags: place.tags || [],
+        features: place.features || [],
+        labels: place.labels || [],
+      });
+      // Index reset is now handled by the useEffect that watches placeDetails.id
+      // No need to reset here as it will be handled by the consolidated effect
       
       // Sadece yeni bir mekan açıldığında formu kapat ve temizle
       if (isNewPlace) {
@@ -118,20 +125,29 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
         loadPlaceDetails(place.id);
       }
 
-      // Yeni mekan açıldığında Gemini fotoğraf analizi yap
+      // Yeni mekan açıldığında AI fotoğraf analizi yap (ChatGPT primary, Gemini fallback)
+      // Her zaman analiz yap (depodan kontrol edilecek)
       if (isNewPlace && place) {
+        console.log("[DetailPanel] AI analizi başlatılıyor (ChatGPT):", place.name);
         analyzePlacePhotos(place).then((tags) => {
+          console.log("[DetailPanel] AI analizi tamamlandı, etiketler:", tags);
           if (tags.length > 0) {
             setPlaceDetails((prev) => {
               if (!prev) return prev;
+              const newTags = [...(prev.tags || []), ...tags];
+              console.log("[DetailPanel] Yeni etiketler eklendi:", {
+                prevTags: prev.tags,
+                newTags: tags,
+                allTags: newTags,
+              });
               return {
                 ...prev,
-                tags: [...(prev.tags || []), ...tags],
+                tags: newTags,
               };
             });
           }
         }).catch((error) => {
-          console.error("[DetailPanel] Gemini analizi hatası:", error);
+          console.error("[DetailPanel] AI analizi hatası:", error);
         });
       }
     }
