@@ -207,10 +207,9 @@ export async function GET(request: NextRequest) {
       // Google Places API (New) place_id formatı: places/ChIJ... veya sadece ChIJ...
       let normalizedId = placeId.trim();
       
-      // Eğer zaten places/ ile başlıyorsa, tekrar ekleme
-      // Ama eğer places/PLACE_ID/photos/... formatındaysa (photo reference) sadece place ID'yi al
+      // Eğer places/PLACE_ID/photos/... formatındaysa (photo reference) sadece place ID'yi al
       if (normalizedId.includes("/photos/")) {
-        // Photo reference formatından place ID'yi çıkar
+        // Photo reference formatından place ID'yi çıkar: places/PLACE_ID/photos/PHOTO_ID
         const placeIdMatch = normalizedId.match(/places\/([^/]+)/);
         if (placeIdMatch) {
           normalizedId = `places/${placeIdMatch[1]}`;
@@ -227,8 +226,22 @@ export async function GET(request: NextRequest) {
         if (normalizedId.startsWith("places/places/")) {
           normalizedId = normalizedId.replace(/^places\//, "");
         }
+        // Eğer places/ ile başlıyor ama ID kısmı yoksa hata
+        if (normalizedId === "places/" || normalizedId.endsWith("/")) {
+          return setCorsHeaders(NextResponse.json(
+            { error: "invalid_place_id_format", placeId },
+            { status: 400 }
+          ));
+        }
       } else {
         // places/ ile başlamıyorsa ekle
+        // ID'nin boş olmadığından emin ol
+        if (!normalizedId || normalizedId.length < 10) {
+          return setCorsHeaders(NextResponse.json(
+            { error: "invalid_place_id_format", placeId },
+            { status: 400 }
+          ));
+        }
         normalizedId = `places/${normalizedId}`;
       }
       
@@ -371,15 +384,19 @@ export async function GET(request: NextRequest) {
       // According to Google Places API documentation:
       // GET https://places.googleapis.com/v1/PHOTO_NAME?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
       // Note: Use photo name directly (no /media endpoint)
+      // ref zaten URL-encoded geliyor (places%2FChIJ...%2Fphotos%2F...)
       let decoded = decodeURIComponent(ref);
       
-      // Eğer ref sadece photo resource ID ise, places/PLACE_ID/photos/ formatına çevir
-      // Ama genelde ref zaten places/PLACE_ID/photos/PHOTO_ID formatında gelir
+      // Decode edilmiş hali places/PLACE_ID/photos/PHOTO_ID formatında olmalı
       let photoName = decoded;
+      
+      // Eğer hala encoded görünüyorsa (çift encoding), tekrar decode et
+      if (photoName.includes("%2F") || photoName.includes("%")) {
+        photoName = decodeURIComponent(photoName);
+      }
       
       // Eğer ref sadece photo resource ID ise (places/ ile başlamıyorsa)
       // Bu durumda place ID'yi bilmiyoruz, bu bir hata olmalı
-      // Ama genelde ref zaten tam path olarak gelir
       if (!photoName.startsWith("places/")) {
         console.warn("[Google Photo] Photo reference does not start with 'places/':", photoName);
         // Fotoğraf referansı geçersiz format, hata döndür
@@ -389,13 +406,15 @@ export async function GET(request: NextRequest) {
         ));
       }
       
-      // Build URL with query parameters (API key in query params as per documentation)
+      // Build URL - photoName path kısmı olarak kullanılır (encode edilmemeli)
+      // Query parameters için URLSearchParams kullan
       const urlParams = new URLSearchParams({
         maxWidthPx: maxwidth,
         maxHeightPx: maxheight,
         key: GOOGLE_PLACES_KEY,
       });
       
+      // URL path kısmını encode etme, sadece query params'ı ekle
       const url = `https://places.googleapis.com/v1/${photoName}?${urlParams.toString()}`;
       
       console.log("[Google Photo] Request:", {
@@ -405,9 +424,12 @@ export async function GET(request: NextRequest) {
         url: url.substring(0, 150) + "...",
       });
       
-      // Fetch photo - API key is in query params, no need for header
+      // Fetch photo - API key is in query params, but also try header as fallback
       const response = await fetch(url, {
         method: "GET",
+        headers: {
+          "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+        },
       });
       
       if (!response.ok) {

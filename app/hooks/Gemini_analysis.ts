@@ -171,11 +171,14 @@ async function getCachedAITags(placeId: string): Promise<string[] | null> {
     
     const response = await fetch(`/api/ai-tags/${encodeURIComponent(placeId)}`);
     if (!response.ok) {
-      console.error("[Storage] Cache check failed", {
-        action: "cache_check_error",
-        placeId,
-        status: response.status,
-      });
+      // 404 is expected if route doesn't exist or no cache, not an error
+      if (response.status !== 404) {
+        console.error("[Storage] Cache check failed", {
+          action: "cache_check_error",
+          placeId,
+          status: response.status,
+        });
+      }
       return null;
     }
     const data = await response.json();
