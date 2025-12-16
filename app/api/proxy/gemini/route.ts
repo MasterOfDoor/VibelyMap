@@ -51,7 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Gemini API'ye istek gönder
-    const geminiUrl = `https://generativeai.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // Use generativelanguage.googleapis.com domain (correct for Gemini API)
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
 
     // Fotoğrafları Gemini formatına çevir
     const parts: any[] = [];

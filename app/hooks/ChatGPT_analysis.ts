@@ -191,6 +191,14 @@ async function getCachedAITags(placeId: string): Promise<string[] | null> {
     }
     return null;
   } catch (error: any) {
+    // 404 is expected if tags don't exist yet - not an error
+    if (error?.message?.includes("404") || (error as any)?.status === 404) {
+      log.storage("No cached tags found (404 expected)", {
+        action: "cache_miss",
+        placeId,
+      });
+      return null;
+    }
     log.storageError("Cache check error (ChatGPT)", {
       action: "cache_check_exception",
       placeId,
