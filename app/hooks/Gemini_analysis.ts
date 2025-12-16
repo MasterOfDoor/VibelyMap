@@ -273,7 +273,7 @@ export async function analyzePlacePhotosWithGemini(place: Place): Promise<string
     totalPhotoUrls: allPhotoUrls.length,
   });
   
-  const photoUrls = allPhotoUrls.slice(0, 6); // Maksimum 6 fotoğraf
+  const photoUrls = allPhotoUrls.slice(0, 9); // Maksimum 9 fotoğraf
 
   if (photoUrls.length === 0) {
     log.geminiError("No photos available for analysis", {

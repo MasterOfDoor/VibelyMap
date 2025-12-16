@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     // OpenAI Chat Completions API request
     const openaiUrl = "https://api.openai.com/v1/chat/completions";
     const openaiRequest = {
-      model: "gpt-4o", // Vision-capable model
+      model: "gpt-4o-2024-11-20", // Vision-capable model with specific version
       messages: [
         {
           role: "user",
@@ -82,12 +82,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      const errorText = await response.text().catch(() => "");
+      let error;
+      try {
+        error = JSON.parse(errorText);
+      } catch {
+        error = { error: errorText || "Unknown error" };
+      }
+      
       console.error("[ChatGPT API] Error:", {
         status: response.status,
         statusText: response.statusText,
-        error: error
+        error: error,
+        requestModel: openaiRequest.model,
+        photoCount: photoUrls.length,
+        promptLength: prompt.length
       });
+      
       return setCorsHeaders(
         NextResponse.json(
           { error: "chatgpt_api_failed", detail: error },

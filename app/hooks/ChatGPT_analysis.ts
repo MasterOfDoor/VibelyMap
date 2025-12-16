@@ -352,7 +352,7 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
     const photoUrls: string[] = [
       ...(place.photos || []),
       ...(place.photo ? [place.photo] : []),
-    ].filter(Boolean).slice(0, 6); // Maksimum 6 fotoğraf
+    ].filter(Boolean).slice(0, 9); // Maksimum 9 fotoğraf
 
     if (photoUrls.length === 0) {
       log.chatgptError("No photos available for analysis", {

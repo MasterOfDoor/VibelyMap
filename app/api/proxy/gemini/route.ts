@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
 
     // Gemini API'ye istek gönder
     // Use generativelanguage.googleapis.com domain (correct for Gemini API)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`;
+    // gemini-1.5-flash is the correct model name for v1beta endpoint
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     // Fotoğrafları Gemini formatına çevir
     const parts: any[] = [];
