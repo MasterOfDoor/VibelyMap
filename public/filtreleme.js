@@ -208,7 +208,7 @@
         menuToggle?.addEventListener("click", () => filterPanel.classList.toggle("open"));
         closeFilter?.addEventListener("click", () => filterPanel.classList.remove("open"));
 
-        const singleSelectCriteria = new Set(["Isiklandirma", "Ambiyans", "Oturma", "Priz"]);
+        const singleSelectCriteria = new Set(["Isiklandirma", "Ambiyans", "Oturma"]); // Priz artık range input
 
         filterForm?.addEventListener("click", (e) => {
             const mainBtn = e.target.closest(".filter-main");

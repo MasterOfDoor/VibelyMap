@@ -44,6 +44,10 @@ interface DetailPanelProps {
 
 export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: DetailPanelProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  // Use ref to track current index to avoid stale closures
+  const currentPhotoIndexRef = useRef(0);
+  // Use ref to maintain stable photos array reference
+  const photosRef = useRef<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [placeDetails, setPlaceDetails] = useState<Place | null>(place);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -139,7 +143,8 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
         features: place.features || [],
         labels: place.labels || [],
       });
-      setCurrentPhotoIndex(0); // Her yeni mekan açıldığında ilk fotoğrafa dön
+      // Index reset is now handled by the useEffect that watches placeDetails.id
+      // No need to reset here as it will be handled by the consolidated effect
       
       // Sadece yeni bir mekan açıldığında formu kapat ve temizle
       if (isNewPlace) {
@@ -263,14 +268,28 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
   }, [place?.id, isConnected, reviewComment, reviewRating, detailedRatings, submitReview, refetch]);
 
   // Photos array'ini memoize et - hooks must be called before early return
+  // Use deep comparison to maintain stable reference
   const photos = useMemo(() => {
-    if (!placeDetails) return [];
+    if (!placeDetails) {
+      photosRef.current = [];
+      return [];
+    }
     const list = placeDetails.photos?.length
       ? placeDetails.photos
       : placeDetails.photo
       ? [placeDetails.photo]
       : [];
     const filtered = list.filter(Boolean);
+    
+    // Deep comparison to avoid unnecessary reference changes
+    const currentStr = JSON.stringify(photosRef.current);
+    const newStr = JSON.stringify(filtered);
+    
+    if (currentStr === newStr && photosRef.current.length > 0) {
+      // Return existing reference if content is identical
+      return photosRef.current;
+    }
+    
     console.log("[DetailPanel] Photos memoized:", {
       placeName: placeDetails.name,
       photosArrayLength: placeDetails.photos?.length || 0,
@@ -278,15 +297,29 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
       finalPhotosCount: filtered.length,
       photos: filtered,
     });
+    
+    // Update ref with new array
+    photosRef.current = filtered;
     return filtered;
   }, [placeDetails?.photos, placeDetails?.photo, placeDetails?.name]);
 
-  // Yeni mekan açıldığında index'i sıfırla (sadece placeDetails.id değiştiğinde)
+  // Track previous place ID to detect actual place changes
+  const prevPlaceIdForIndexRef = useRef<string | null>(null);
+  
+  // Yeni mekan açıldığında index'i sıfırla (sadece placeDetails.id gerçekten değiştiğinde)
   useEffect(() => {
-    if (placeDetails?.id) {
+    if (placeDetails?.id && prevPlaceIdForIndexRef.current !== placeDetails.id) {
+      prevPlaceIdForIndexRef.current = placeDetails.id;
       setCurrentPhotoIndex(0);
+      currentPhotoIndexRef.current = 0;
+      console.log("[DetailPanel] Place ID changed, resetting photo index to 0");
     }
   }, [placeDetails?.id]);
+  
+  // Sync ref with state
+  useEffect(() => {
+    currentPhotoIndexRef.current = currentPhotoIndex;
+  }, [currentPhotoIndex]);
 
   // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
   useEffect(() => {
@@ -295,10 +328,14 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsFullscreen(false);
-      } else if (e.key === "ArrowLeft" && photos.length > 1) {
-        setCurrentPhotoIndex((prev) => (prev - 1 + photos.length) % photos.length);
-      } else if (e.key === "ArrowRight" && photos.length > 1) {
-        setCurrentPhotoIndex((prev) => (prev + 1) % photos.length);
+      } else if (e.key === "ArrowLeft" && photosRef.current.length > 1) {
+        const newIndex = (currentPhotoIndexRef.current - 1 + photosRef.current.length) % photosRef.current.length;
+        currentPhotoIndexRef.current = newIndex;
+        setCurrentPhotoIndex(newIndex);
+      } else if (e.key === "ArrowRight" && photosRef.current.length > 1) {
+        const newIndex = (currentPhotoIndexRef.current + 1) % photosRef.current.length;
+        currentPhotoIndexRef.current = newIndex;
+        setCurrentPhotoIndex(newIndex);
       }
     };
 
@@ -310,38 +347,62 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
   const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    
+    // Use ref to get current photos array (stable reference)
+    const currentPhotos = photosRef.current;
+    const currentIndex = currentPhotoIndexRef.current;
+    
     console.log("[DetailPanel] handlePrevPhoto called", { 
-      photosLength: photos.length,
-      photos: photos 
+      photosLength: currentPhotos.length,
+      currentIndex,
+      photos: currentPhotos 
     });
-    if (photos.length > 1) {
-      setCurrentPhotoIndex((prev) => {
-        const newIndex = (prev - 1 + photos.length) % photos.length;
-        console.log("[DetailPanel] Önceki fotoğraf:", { prev, newIndex, photoUrl: photos[newIndex] });
-        return newIndex;
+    
+    if (currentPhotos.length > 1) {
+      const newIndex = (currentIndex - 1 + currentPhotos.length) % currentPhotos.length;
+      console.log("[DetailPanel] Önceki fotoğraf:", { 
+        prev: currentIndex, 
+        newIndex, 
+        photoUrl: currentPhotos[newIndex] 
       });
+      
+      // Update both ref and state
+      currentPhotoIndexRef.current = newIndex;
+      setCurrentPhotoIndex(newIndex);
     } else {
       console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, []); // No dependencies - uses refs for stable access
 
   const handleNextPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    
+    // Use ref to get current photos array (stable reference)
+    const currentPhotos = photosRef.current;
+    const currentIndex = currentPhotoIndexRef.current;
+    
     console.log("[DetailPanel] handleNextPhoto called", { 
-      photosLength: photos.length,
-      photos: photos 
+      photosLength: currentPhotos.length,
+      currentIndex,
+      photos: currentPhotos 
     });
-    if (photos.length > 1) {
-      setCurrentPhotoIndex((prev) => {
-        const newIndex = (prev + 1) % photos.length;
-        console.log("[DetailPanel] Sonraki fotoğraf:", { prev, newIndex, photoUrl: photos[newIndex] });
-        return newIndex;
+    
+    if (currentPhotos.length > 1) {
+      const newIndex = (currentIndex + 1) % currentPhotos.length;
+      console.log("[DetailPanel] Sonraki fotoğraf:", { 
+        prev: currentIndex, 
+        newIndex, 
+        photoUrl: currentPhotos[newIndex] 
       });
+      
+      // Update both ref and state
+      currentPhotoIndexRef.current = newIndex;
+      setCurrentPhotoIndex(newIndex);
     } else {
       console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos]);
+  }, []); // No dependencies - uses refs for stable access
 
   const openFullscreen = () => {
     setIsFullscreen(true);

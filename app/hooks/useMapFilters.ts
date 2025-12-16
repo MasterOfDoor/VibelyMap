@@ -13,6 +13,9 @@ const optionCategory: { [key: string]: string } = {
   Vegan: "Yemek",
   Atistirmalik: "Yemek",
   "Masada priz": "Priz",
+  "Priz Az": "Priz",
+  "Priz Orta": "Priz",
+  "Priz Var": "Priz",
   Uygun: "Fiyat",
   Orta: "Fiyat",
   Pahali: "Fiyat",
@@ -122,6 +125,34 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
       }
       // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
     }
+
+    // Priz filtresi (1-4)
+    if (ranges.Priz !== undefined && ranges.Priz > 0) {
+      const placePrizTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("priz")
+      );
+      if (placePrizTag) {
+        // Etiketten sayıyı çıkar veya metin kontrolü yap
+        let placePrizValue = -1;
+        const lowerTag = placePrizTag.toLowerCase();
+        if (lowerTag.includes("az")) placePrizValue = 1;
+        else if (lowerTag.includes("orta")) placePrizValue = 2;
+        else if (lowerTag.includes("var") && !lowerTag.includes("az") && !lowerTag.includes("orta") && !lowerTag.includes("masada")) placePrizValue = 3;
+        else if (lowerTag.includes("masada")) placePrizValue = 4;
+        
+        const match = placePrizTag.match(/\d+/);
+        if (match) {
+          placePrizValue = Number(match[0]);
+        }
+        
+        if (placePrizValue >= 1) {
+          // Kullanıcının seçtiği değerden küçük veya eşit olmalı
+          // Örnek: Kullanıcı 2 seçtiyse, mekan 2, 3 veya 4 olabilir (daha fazla veya eşit)
+          if (placePrizValue < ranges.Priz) return false;
+        }
+      }
+      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
+    }
   }
 
   // Check main filters
@@ -133,8 +164,8 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
   for (const [criterion, selectedOptions] of Object.entries(sub)) {
     if (selectedOptions.length === 0) continue;
 
-    // Isiklandirma and Oturma are handled by ranges, skip here
-    if (criterion === "Isiklandirma" || criterion === "Oturma") {
+    // Isiklandirma, Oturma and Priz are handled by ranges, skip here
+    if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
       continue;
     }
 

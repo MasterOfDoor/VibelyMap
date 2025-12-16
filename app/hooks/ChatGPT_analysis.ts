@@ -8,7 +8,7 @@ const SYSTEM_PROMPT = `Sen bir kafe/mekan fotoğraf analiz asistanısın. Görev
 ÇIKTI ALANLARI (sadece gördüğün net kanıta göre doldur):
 - mekan_isiklandirma: 1 | 2 | 3 | 4 | 5
 - ambiyans: { "retro": true/false, "modern": true/false }
-- masada_priz_var_mi: true
+- masada_priz_var_mi: 1 | 2 | 3 | 4
 - koltuk_var_mi: 0 | 1 | 2 | 3
 - sigara_iciliyor: true
 - sigara_alani: ["acik", "kapali"]
@@ -19,6 +19,7 @@ KURALLAR:
 - Sigara: sadece kanıt varsa yaz; açık/kapalı alan ayrımını sigara_alani listesinde belirt.
 - Mekan ışıklandırması için 1 canlı, 3 doğal, 5 loş olacak biçimde ara değer olursa ara değer verebilir.
 - Koltuk için 0 yok, 1 az, 2 orta, 3 mekan genelinde koltuk var.
+- Priz için 1 az (birkaç priz var), 2 orta (orta düzeyde priz var), 3 var (yeterli priz var), 4 masada priz (masalarda priz var).
 - Ambiyans retro/modern boolean; ikisi de yoksa ambiyans alanını yazma.
 - Deniz varlığı için kesin kanıt ara ışık yansıması yetersiz.
 - Fotoğrafın sabah olması Canlı veya doğal olduğu anlamına gelmez daha iyi analiz için diğer fotoğraflarıda incele.
@@ -31,7 +32,7 @@ interface PhotoAnalysisResult {
     retro?: boolean;
     modern?: boolean;
   };
-  masada_priz_var_mi?: boolean;
+  masada_priz_var_mi?: 1 | 2 | 3 | 4;
   koltuk_var_mi?: 0 | 1 | 2 | 3;
   sigara_iciliyor?: boolean;
   sigara_alani?: ("acik" | "kapali")[];
@@ -127,9 +128,18 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
     tags.push("Modern");
   }
 
-  // Priz
-  if (result.masada_priz_var_mi) {
-    tags.push("Masada priz");
+  // Priz (1-4 arası değer)
+  if (typeof result.masada_priz_var_mi === "number") {
+    const prizValue = result.masada_priz_var_mi;
+    if (prizValue === 1) {
+      tags.push("Priz Az");
+    } else if (prizValue === 2) {
+      tags.push("Priz Orta");
+    } else if (prizValue === 3) {
+      tags.push("Priz Var");
+    } else if (prizValue === 4) {
+      tags.push("Masada priz");
+    }
   }
 
   // Koltuk (0-3 arası değer)

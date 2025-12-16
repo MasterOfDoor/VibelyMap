@@ -24,6 +24,36 @@ const MapComponent = dynamic(() => import("./components/MapComponent"), {
 
 export default function Home() {
   const { address, isConnected } = useAccount();
+  
+  // Tag migration'ı bir kere çalıştır (sadece client-side)
+  useEffect(() => {
+    const runTagMigration = async () => {
+      try {
+        // Migration durumunu kontrol et
+        const statusResponse = await fetch("/api/migrate/tags");
+        const status = await statusResponse.json();
+        
+        // Eğer migration tamamlanmamışsa çalıştır
+        if (!status.completed) {
+          const response = await fetch("/api/migrate/tags", {
+            method: "POST",
+          });
+          const result = await response.json();
+          if (result.success) {
+            console.log("[Tag Migration] Completed:", result.message);
+          }
+        }
+      } catch (error) {
+        // Migration hatası kritik değil, sessizce geç
+        console.warn("[Tag Migration] Failed or already completed:", error);
+      }
+    };
+    
+    // Sadece client-side'da çalıştır
+    if (typeof window !== "undefined") {
+      runTagMigration();
+    }
+  }, []); // Sadece bir kere çalışır
   const { setMiniAppReady, isMiniAppReady } = useMiniKit();
 
   // Farcaster SDK ready (if available)
@@ -205,12 +235,13 @@ export default function Home() {
         );
         
         // Range filtreleri var mı kontrol et (default değerler dikkate alınmaz)
-        // Default değerler: Isiklandirma: 3, Oturma: 0
+        // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
         const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).some((key) => {
           const value = filters.ranges![key];
-          // Isiklandirma default: 3, Oturma default: 0
+          // Isiklandirma default: 3, Oturma default: 0, Priz default: 0
           if (key === "Isiklandirma" && value === 3) return false;
           if (key === "Oturma" && value === 0) return false;
+          if (key === "Priz" && value === 0) return false;
           return true; // Default dışında bir değer varsa true döndür
         });
         
