@@ -1,20 +1,20 @@
 "use client";
 
-import { useAccount } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 
 /**
  * Smart Wallet bağlantısı ve durumu için hook
- * Base Account (Smart Wallet) otomatik olarak Base Mini App içinde bağlanır
- * OnchainKitProvider tarafından yönetilir
+ * Base Account connector ile Mini App'lerde otomatik bağlanır, login butonu gerekmez
  */
 export function useSmartWallet() {
   const { address, isConnected, isConnecting } = useAccount();
+  const { connect } = useConnect();
 
   return {
     address,
     isConnected,
     isConnecting,
-    // connect fonksiyonu kaldırıldı - Base Account otomatik bağlanır
+    connect, // Manuel bağlantı için (genellikle gerekmez, Base Account otomatik bağlanır)
   };
 }
 

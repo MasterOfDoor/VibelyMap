@@ -30,12 +30,6 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
-  // API body size limit (App Router için)
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '10mb', // 10MB body size limit
-    },
-  },
 }
 
 export default nextConfig

@@ -17,7 +17,6 @@ interface MapComponentProps {
   selectedPlace: Place | null;
   onPlaceClick: (place: Place) => void;
   onLocationClick?: () => void;
-  shouldFitBounds?: boolean; // Arama sonrası haritayı fit etmek için
 }
 
 function MapComponent({
@@ -25,7 +24,6 @@ function MapComponent({
   selectedPlace,
   onPlaceClick,
   onLocationClick,
-  shouldFitBounds = false,
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -134,14 +132,16 @@ function MapComponent({
       markersRef.current.push(marker);
     });
 
-    // Fit bounds sadece shouldFitBounds true olduğunda (arama sonrası)
-    if (shouldFitBounds && places.length > 0 && mapInstanceRef.current) {
-      const bounds = L.latLngBounds(
-        places.map((p) => [p.coords[0], p.coords[1]] as [number, number])
-      );
-      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [places, onPlaceClick, shouldFitBounds]);
+    // Fit bounds sadece ilk yüklemede (places değiştiğinde değil, sadece yeni sonuçlar geldiğinde)
+    // Marker'a tıklayınca zoom seviyesini değiştirmemek için fitBounds'u kaldırdık
+    // Kullanıcı zoom yaptıysa, o zoom seviyesinde kalmalı
+    // if (places.length > 0 && mapInstanceRef.current) {
+    //   const bounds = L.latLngBounds(
+    //     places.map((p) => [p.coords[0], p.coords[1]] as [number, number])
+    //   );
+    //   mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+    // }
+  }, [places, onPlaceClick]);
 
   // Focus on selected place - zoom yapma, sadece marker'ı highlight et
   // useEffect(() => {

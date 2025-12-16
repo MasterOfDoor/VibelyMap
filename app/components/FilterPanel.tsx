@@ -19,12 +19,14 @@ export interface FilterState {
   };
 }
 
-const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
+const baseCriteria = ["Isiklandirma", "Yemek", "Priz", "Fiyat", "Ambiyans", "Oturma", "Deniz", "Sigara"];
 
 const criterionOptions: { [key: string]: string[] } = {
   Kategori: ["Kafe", "Restoran", "Bar"],
   Isiklandirma: ["Los", "Dogal", "Canli"],
-  Priz: ["Priz Az", "Priz Orta", "Priz Var", "Masada priz"], // Kept for backward compatibility, but Priz is now a range
+  Yemek: ["Tatli", "Kahvalti", "Vegan", "Atistirmalik"],
+  Priz: ["Masada priz"],
+  Fiyat: ["Uygun", "Orta", "Pahali"],
   Ambiyans: ["Retro", "Modern"],
   Oturma: ["Koltuk var", "Koltuk yok"],
   Deniz: ["Deniz goruyor", "Deniz gormuyor"],
@@ -46,7 +48,6 @@ export default function FilterPanel({
   const [rangeValues, setRangeValues] = useState<{ [key: string]: number }>({
     Isiklandirma: 3,
     Oturma: 0,
-    Priz: 0, // Default: 0 (no selection)
   });
 
   const toggleCriterion = (criterion: string) => {
@@ -83,29 +84,17 @@ export default function FilterPanel({
       alert("En az bir filtre seçmelisin.");
       return;
     }
-    // Range değerlerini ekle, ama default değerlerdeyse ekleme
-    // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
-    const ranges: { [key: string]: number } = {};
-    if (rangeValues.Isiklandirma !== 3) {
-      ranges.Isiklandirma = rangeValues.Isiklandirma;
-    }
-    if (rangeValues.Oturma !== 0) {
-      ranges.Oturma = rangeValues.Oturma;
-    }
-    if (rangeValues.Priz !== 0 && rangeValues.Priz !== undefined) {
-      ranges.Priz = rangeValues.Priz;
-    }
-    
+    // Range değerlerini de ekle
     const filtersWithRanges = {
       ...selectedFilters,
-      ranges: Object.keys(ranges).length > 0 ? ranges : undefined,
+      ranges: rangeValues,
     };
     onApplyFilters(filtersWithRanges);
   };
 
   const handleReset = () => {
     setSelectedFilters({ main: [], sub: {}, ranges: {} });
-    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0 });
+    setRangeValues({ Isiklandirma: 3, Oturma: 0 });
     setExpandedCriterion(null);
     onResetFilters();
   };
@@ -131,17 +120,14 @@ export default function FilterPanel({
       </div>
       <form id="filterForm" className="filter-list">
         {Object.entries(criterionOptions).map(([criterion, options]) => {
-          // Işıklandırma, Oturma ve Priz için range input göster
-          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
+          // Işıklandırma ve Oturma için range input göster
+          if (criterion === "Isiklandirma" || criterion === "Oturma") {
             const isIsiklandirma = criterion === "Isiklandirma";
-            const isPriz = criterion === "Priz";
-            const min = isIsiklandirma ? 1 : (isPriz ? 1 : 0);
-            const max = isIsiklandirma ? 5 : (isPriz ? 4 : 3);
-            const currentValue = rangeValues[criterion] || (isIsiklandirma ? 3 : (isPriz ? 0 : 0));
+            const min = isIsiklandirma ? 1 : 0;
+            const max = isIsiklandirma ? 5 : 3;
+            const currentValue = rangeValues[criterion] || (isIsiklandirma ? 3 : 0);
             const labels = isIsiklandirma 
               ? ["Canlı", "", "Doğal", "", "Loş"]
-              : isPriz
-              ? ["", "Az", "Orta", "Var", "Masada Priz"]
               : ["Yok", "Az", "Orta", "Var"];
             
             return (
@@ -201,11 +187,6 @@ export default function FilterPanel({
                 </div>
               </div>
             );
-          }
-          
-          // Priz için chip-option gösterme (range input kullanılıyor)
-          if (criterion === "Priz") {
-            return null; // Priz range input olarak yukarıda gösterildi
           }
           
           // Diğer kriterler için normal chip-option'lar

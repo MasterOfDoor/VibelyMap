@@ -211,7 +211,6 @@ export async function GET(request: NextRequest) {
       
       // FieldMask: Google Places API (New) için field mask
       // photos field'ı tüm fotoğrafları getirir (max 10 fotoğraf)
-      // reviews field'ı nested olduğu için reviews.authorAttribution, reviews.text, reviews.rating şeklinde belirtilmeli
       const fieldMask = [
         "id",
         "displayName",
@@ -219,13 +218,16 @@ export async function GET(request: NextRequest) {
         "formattedPhoneNumber",
         "websiteUri",
         "regularOpeningHours.weekdayDescriptions",
-        "photos", // Tüm fotoğraf bilgileri (name, widthPx, heightPx dahil)
-        "location",
+        "photos.name", // Tüm fotoğrafların name'leri
+        "photos.widthPx",
+        "photos.heightPx",
+        "location.latitude",
+        "location.longitude",
         "types",
         "rating",
         "userRatingCount",
-        "reviews.authorAttribution",
-        "reviews.text",
+        "reviews.authorAttribution.displayName",
+        "reviews.text.text",
         "reviews.rating",
         "reviews.publishTime",
       ].join(",");
@@ -329,8 +331,8 @@ export async function GET(request: NextRequest) {
 
       // Place Photos (New API v1) - photo name format: places/PLACE_ID/photos/PHOTO_RESOURCE
       // According to Google Places API documentation:
-      // GET https://places.googleapis.com/v1/PHOTO_NAME/media?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
-      // Note: /media endpoint is required for photo requests
+      // GET https://places.googleapis.com/v1/PHOTO_NAME?maxHeightPx=400&maxWidthPx=400&key=YOUR_API_KEY
+      // Note: Use photo name directly (no /media endpoint)
       const decoded = decodeURIComponent(ref);
       const photoName = decoded.startsWith("places/") ? decoded : decoded;
       
@@ -341,7 +343,7 @@ export async function GET(request: NextRequest) {
         key: GOOGLE_PLACES_KEY,
       });
       
-      const url = `https://places.googleapis.com/v1/${photoName}/media?${urlParams.toString()}`;
+      const url = `https://places.googleapis.com/v1/${photoName}?${urlParams.toString()}`;
       
       console.log("[Google Photo] Request:", {
         photoName: photoName.substring(0, 100) + "...",

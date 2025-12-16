@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { useMapPlaces } from "./hooks/useMapPlaces";
 import { useMapSearch } from "./hooks/useMapSearch";
 import { useMapFilters } from "./hooks/useMapFilters";
-import { analyzePlacesPhotos } from "./hooks/ChatGPT_analysis";
+import { analyzePlacesPhotos } from "./hooks/Gemini_analysis";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { Place } from "./components/DetailPanel";
 import { buildQueryFromFilters } from "./utils/filterHelpers";
@@ -16,6 +16,8 @@ import ResultsPanel from "./components/ResultsPanel";
 import DetailPanel from "./components/DetailPanel";
 import FilterPanel, { FilterState } from "./components/FilterPanel";
 import ProfilePanel from "./components/ProfilePanel";
+import { sdk } from '@farcaster/miniapp-sdk';
+
 
 // Leaflet haritasını dinamik olarak yükle (SSR sorunlarını önlemek için)
 const MapComponent = dynamic(() => import("./components/MapComponent"), {
@@ -24,44 +26,11 @@ const MapComponent = dynamic(() => import("./components/MapComponent"), {
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  
-  // Tag migration'ı bir kere çalıştır (sadece client-side)
-  useEffect(() => {
-    const runTagMigration = async () => {
-      try {
-        // Migration durumunu kontrol et
-        const statusResponse = await fetch("/api/migrate/tags");
-        const status = await statusResponse.json();
-        
-        // Eğer migration tamamlanmamışsa çalıştır
-        if (!status.completed) {
-          const response = await fetch("/api/migrate/tags", {
-            method: "POST",
-          });
-          const result = await response.json();
-          if (result.success) {
-            console.log("[Tag Migration] Completed:", result.message);
-          }
-        }
-      } catch (error) {
-        // Migration hatası kritik değil, sessizce geç
-        console.warn("[Tag Migration] Failed or already completed:", error);
-      }
-    };
-    
-    // Sadece client-side'da çalıştır
-    if (typeof window !== "undefined") {
-      runTagMigration();
-    }
-  }, []); // Sadece bir kere çalışır
   const { setMiniAppReady, isMiniAppReady } = useMiniKit();
 
-  // Farcaster SDK ready (if available)
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).farcaster?.sdk?.actions?.ready) {
-      (window as any).farcaster.sdk.actions.ready();
-    }
-  }, []);
+    sdk.actions.ready();
+}, []);
 
 
   // Base Mini App SDK ready callback
@@ -95,31 +64,10 @@ export default function Home() {
   }, [places, currentFilters, filterPlaces]);
 
   const handlePlaceClick = useCallback((place: Place) => {
-    // Places listesinden güncel place'i bul (analiz sonuçları dahil)
-    const updatedPlace = places.find((p) => p.id === place.id) || place;
-    setSelectedPlace(updatedPlace);
+    setSelectedPlace(place);
     setIsDetailOpen(true);
     setIsResultsOpen(false);
-  }, [places]);
-
-  const handlePlaceUpdate = useCallback((placeId: string, updatedPlace: Place) => {
-    // Places listesindeki ilgili place'i güncelle
-    const updatedPlaces = places.map((p: Place) => {
-      if (p.id === placeId) {
-        return updatedPlace;
-      }
-      return p;
-    });
-    setPlaces(updatedPlaces);
-    
-    // Eğer seçili place ise, onu da güncelle
-    setSelectedPlace((prevSelected) => {
-      if (prevSelected?.id === placeId) {
-        return updatedPlace;
-      }
-      return prevSelected;
-    });
-  }, [places, setPlaces]);
+  }, []);
 
   const handleSearch = useCallback(
     async (query: string) => {
@@ -132,10 +80,6 @@ export default function Home() {
       resetFilters();
       
       if (results.length > 0) {
-        // Google Places'ten place ID'leri alındı
-        // Cache kontrolü ve analiz marker tıklamasına ertelendi
-        console.log("[handleSearch] Place ID'leri alındı, AI analizi marker tıklamasına ertelendi");
-        console.log("[handleSearch] Place IDs:", results.map(r => r.id));
         setIsResultsOpen(true);
         setPlaces(results);
       }
@@ -233,52 +177,29 @@ export default function Home() {
         const otherFilters = Object.keys(filters.sub).filter(
           (key) => key !== "Kategori" && filters.sub[key].length > 0
         );
-        
-        // Range filtreleri var mı kontrol et (default değerler dikkate alınmaz)
-        // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
-        const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).some((key) => {
-          const value = filters.ranges![key];
-          // Isiklandirma default: 3, Oturma default: 0, Priz default: 0
-          if (key === "Isiklandirma" && value === 3) return false;
-          if (key === "Oturma" && value === 0) return false;
-          if (key === "Priz" && value === 0) return false;
-          return true; // Default dışında bir değer varsa true döndür
-        });
-        
-        // Eğer sadece kategori seçildiyse (diğer filtreler ve range filtreleri yoksa), AI analizini marker tıklamasına ertele
-        const shouldDeferAnalysis = otherFilters.length === 0 && !hasRangeFilters;
 
+        // Gemini fotoğraf analizi yap (her mekan için ayrı API çağrısı)
         if (results.length > 0) {
-          if (shouldDeferAnalysis) {
-            // Sadece kategori seçildi, AI analizini marker tıklamasına ertele
-            console.log("[handleApplyFilters] Sadece kategori seçildi, AI analizi marker tıklamasına ertelendi");
-            setPlaces(results);
-            setIsResultsOpen(true);
-          } else {
-            // Diğer filtreler veya range filtreleri var, AI analizini hemen yap
-            // Önce cache kontrolü yapılacak, sadece cache'de olmayanlar için analiz yapılacak
-            console.log("[handleApplyFilters] Place ID'leri alındı:", results.map(r => r.id));
-            console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT)...", results.length, "mekan için");
-            console.log("[handleApplyFilters] Önce cache kontrolü yapılacak, sonra sadece gerekli olanlar için analiz yapılacak");
-            try {
-              const analysisResults = await analyzePlacesPhotos(results);
-              console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
-              console.log("[handleApplyFilters] Analiz edilen place ID'leri:", Array.from(analysisResults.keys()));
+          console.log("[handleApplyFilters] Gemini analizi başlatılıyor...", results.length, "mekan için");
+          try {
+            const analysisResults = await analyzePlacesPhotos(results);
+            console.log("[handleApplyFilters] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
 
-              // Analiz sonuçlarını places'lere uygula
-              const enrichedResults = results.map((place) => {
-                const analysisTags = analysisResults.get(place.id);
-                if (analysisTags && analysisTags.length > 0) {
-                  console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
-                  return {
-                    ...place,
-                    tags: [...(place.tags || []), ...analysisTags],
-                  };
-                }
-                return place;
-              });
+            // Analiz sonuçlarını places'lere uygula
+            const enrichedResults = results.map((place) => {
+              const analysisTags = analysisResults.get(place.id);
+              if (analysisTags && analysisTags.length > 0) {
+                console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
+                return {
+                  ...place,
+                  tags: [...(place.tags || []), ...analysisTags],
+                };
+              }
+              return place;
+            });
 
-              // Analiz sonrası filtreleme yap
+            // Diğer filtreler varsa analiz sonrası filtreleme yap
+            if (otherFilters.length > 0) {
               const filteredAfterAnalysis = filterPlaces(enrichedResults, filters);
               setPlaces(filteredAfterAnalysis);
               
@@ -287,15 +208,16 @@ export default function Home() {
               } else {
                 alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
               }
-            } catch (error: any) {
-              console.error("[handleApplyFilters] AI analizi hatası:", error);
-              // Hata durumunda orijinal sonuçları göster (cache'den gelenler varsa onlar kullanılabilir)
-              // Google Places sonuçları zaten mevcut, sadece AI analizi başarısız oldu
-              setPlaces(results);
+            } else {
+              // Sadece kategori filtresi var, tüm sonuçları göster
+              setPlaces(enrichedResults);
               setIsResultsOpen(true);
-              // Kullanıcıya bilgi ver (opsiyonel)
-              console.warn("[handleApplyFilters] AI analizi başarısız oldu, ancak mekanlar gösteriliyor");
             }
+          } catch (error: any) {
+            console.error("[handleApplyFilters] Gemini analizi hatası:", error);
+            // Hata durumunda orijinal sonuçları göster
+            setPlaces(results);
+            setIsResultsOpen(true);
           }
         }
       } catch (error: any) {
@@ -397,7 +319,6 @@ export default function Home() {
           setIsDetailOpen(false);
           setSelectedPlace(null);
         }}
-        onPlaceUpdate={handlePlaceUpdate}
       />
 
       <ProfilePanel

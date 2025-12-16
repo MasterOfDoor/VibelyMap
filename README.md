@@ -29,11 +29,6 @@ GPT5_API_KEY=your_gpt_key_here
 GEMINI_API_KEY=your_gemini_key_here
 ```
 
-**Cloudinary Kurulumu:**
-- `CLOUDINARY_SETUP.md` dosyasında adım adım kurulum rehberi var
-- Cloudinary hesabı: https://cloudinary.com (ücretsiz)
-- Dashboard'dan Cloud Name ve Upload Preset oluşturun
-
 ### 3. Geliştirme Sunucusunu Başlatın
 
 ```bash
