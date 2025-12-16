@@ -27,9 +27,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { placeId: string } }
 ) {
+  const { placeId } = params;
+  
   try {
-    const { placeId } = params;
-
     if (!placeId) {
       return setCorsHeaders(
         NextResponse.json({ error: "Place ID is required" }, { status: 400 })
@@ -87,8 +87,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { placeId: string } }
 ) {
+  const { placeId } = params;
+  
   try {
-    const { placeId } = params;
     const body = await request.json();
     const { tags } = body;
 
