@@ -371,14 +371,8 @@ let userCoords = null;
 const friendRequestStorageKey = "friendRequests_v1";
 const reviewsStorageKey = "reviewsData_v1";
 
-// Leaflet haritasi
-const map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
-
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-}).addTo(map);
-L.control.zoom({ position: "topright" }).addTo(map);
+// Leaflet haritasi - DOMContentLoaded içinde initialize edilecek
+let map = null;
 
 // DOM referanslari
 const btnKonum = document.getElementById("btnKonum");
@@ -2148,6 +2142,19 @@ btnKonum.addEventListener("click", () => centerOnUser());
 
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Leaflet haritasi initialize et
+    if (typeof L !== "undefined") {
+        map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
+        
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+        L.control.zoom({ position: "topright" }).addTo(map);
+    } else {
+        console.error("Leaflet (L) is not defined. Make sure Leaflet script is loaded before script.js");
+    }
+    
     loadUsers();
     loadReviews();
     loadSession();
@@ -2840,8 +2847,11 @@ function handlePlaceSearch() {
                 showToast("Eşleşen mekan bulunamadı");
                 return;
             }
+            // AI analizi artık page.tsx'de yönetiliyor (handleSearch içinde)
+            // prefetchLabelsForPlaces çağrısı devre dışı bırakıldı
             if (!isEventSearch && typeof prefetchLabelsForPlaces === "function") {
-                prefetchLabelsForPlaces(visible);
+                console.log("[script.js] prefetchLabelsForPlaces çağrıldı ama devre dışı - AI analizi page.tsx'de yönetiliyor");
+                // prefetchLabelsForPlaces(visible); // Devre dışı
             }
             if (isEventSearch) {
                 const firstPlace = visible[0];

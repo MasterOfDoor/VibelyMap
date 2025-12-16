@@ -374,12 +374,6 @@ const reviewsStorageKey = "reviewsData_v1";
 // Leaflet haritasi - DOMContentLoaded içinde initialize edilecek
 let map = null;
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-}).addTo(map);
-L.control.zoom({ position: "topright" }).addTo(map);
-
 // DOM referanslari
 const btnKonum = document.getElementById("btnKonum");
 const toast = document.getElementById("toast");
@@ -2853,8 +2847,11 @@ function handlePlaceSearch() {
                 showToast("Eşleşen mekan bulunamadı");
                 return;
             }
+            // AI analizi artık page.tsx'de yönetiliyor (handleSearch içinde)
+            // prefetchLabelsForPlaces çağrısı devre dışı bırakıldı
             if (!isEventSearch && typeof prefetchLabelsForPlaces === "function") {
-                prefetchLabelsForPlaces(visible);
+                console.log("[script.js] prefetchLabelsForPlaces çağrıldı ama devre dışı - AI analizi page.tsx'de yönetiliyor");
+                // prefetchLabelsForPlaces(visible); // Devre dışı
             }
             if (isEventSearch) {
                 const firstPlace = visible[0];

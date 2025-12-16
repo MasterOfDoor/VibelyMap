@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "@/app/utils/logger";
 
+// Next.js API route timeout limitini artır (60 saniye)
+// 6 fotoğraf x ~1-2MB = ~6-12MB payload için yeterli süre
+export const maxDuration = 60;
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 // CORS headers - Next.js aynı domain'de olduğu için aslında gerekli değil
@@ -161,25 +165,49 @@ export async function POST(request: NextRequest) {
     const duration = Date.now() - startTime;
 
     if (!response.ok) {
-      // Önce text olarak oku, sonra JSON parse et
-      const errorText = await response.text().catch(() => "Unknown error");
-      let errorDetail: any;
-      try {
-        errorDetail = JSON.parse(errorText);
-      } catch {
-        errorDetail = { error: errorText || "Unknown error", raw: errorText };
-      }
+      // Detaylı hata bilgisi al
+      const errorBody = await response.json().catch(async () => {
+        // JSON parse edilemezse text olarak oku
+        const errorText = await response.text().catch(() => "Unknown error");
+        return { error: { message: errorText, raw: errorText } };
+      });
+      
+      // Detaylı hata loglama
+      console.error("GOOGLE API DETAYLI HATA:", JSON.stringify(errorBody, null, 2));
+      
       log.geminiError("Gemini API request failed", {
         action: "api_error",
         status: response.status,
         statusText: response.statusText,
         duration: `${duration}ms`,
-        error: errorDetail,
+        error: errorBody,
+        errorCode: errorBody.error?.code,
+        errorMessage: errorBody.error?.message,
         url: geminiUrl.split("?")[0],
       });
+      
+      // Hata koduna göre özel mesajlar
+      let errorMessage = errorBody.error?.message || "Detay alınamadı";
+      let errorCode = errorBody.error?.code;
+      
+      // Yaygın hata kodları için özel mesajlar
+      if (response.status === 413) {
+        errorMessage = "Payload Too Large - Fotoğraf sayısını azaltın veya çözünürlüğü düşürün";
+      } else if (response.status === 400) {
+        errorMessage = errorBody.error?.message || "Invalid Argument - Base64 formatını kontrol edin";
+      } else if (response.status === 429) {
+        errorMessage = "Too Many Requests - İstek hızını azaltın";
+      }
+      
       return setCorsHeaders(
         NextResponse.json(
-          { error: "gemini_api_failed", detail: errorDetail },
+          { 
+            error: "gemini_api_failed", 
+            detail: errorMessage,
+            code: errorCode,
+            status: response.status,
+            fullError: errorBody // Debug için tam hata detayı
+          }, 
           { status: response.status }
         )
       );

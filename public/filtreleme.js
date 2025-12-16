@@ -198,27 +198,10 @@
     }
 
     async function prefetchLabelsForPlaces(list) {
-        if (!Array.isArray(list) || !list.length || typeof ensurePlaceLabels !== "function") return;
-        const results = await Promise.allSettled(list.map((p) => ensurePlaceLabels(p)));
-
-        if (typeof applyPlaceLabels !== "function") return;
-
-        results.forEach((res, idx) => {
-            const place = list[idx];
-            if (!place) return;
-
-            if (res.status === "fulfilled" && res.value?.labels?.length) {
-                applyPlaceLabels(place, res.value.labels, res.value.clears);
-                return;
-            }
-
-            if (typeof getCachedPlaceLabels === "function") {
-                const cached = getCachedPlaceLabels(place.id);
-                if (cached?.labels?.length) {
-                    applyPlaceLabels(place, cached.labels, cached.clears);
-                }
-            }
-        });
+        // Bu fonksiyon artık kullanılmıyor - AI analizi page.tsx'de yönetiliyor
+        // Sadece geriye dönük uyumluluk için boş bırakıldı
+        console.log("[filtreleme.js] prefetchLabelsForPlaces çağrıldı ama devre dışı - AI analizi page.tsx'de yönetiliyor");
+        return;
     }
 
     function initFilterUI() {

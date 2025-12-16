@@ -351,7 +351,11 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
               <>
                 <button
                   className="photo-nav prev"
-                  onClick={handlePrevPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handlePrevPhoto(e);
+                  }}
                   aria-label="Önceki foto"
                   type="button"
                   style={{
@@ -361,15 +365,36 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                     transform: "translateY(-50%)",
                     zIndex: 100,
                     display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "40px",
+                    height: "40px",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    fontSize: "20px",
+                    fontWeight: "bold",
                     pointerEvents: "auto",
                     cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
                   }}
                 >
                   &lt;
                 </button>
                 <button
                   className="photo-nav next"
-                  onClick={handleNextPhoto}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleNextPhoto(e);
+                  }}
                   aria-label="Sonraki foto"
                   type="button"
                   style={{
@@ -379,8 +404,25 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                     transform: "translateY(-50%)",
                     zIndex: 100,
                     display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "40px",
+                    height: "40px",
+                    background: "rgba(0, 0, 0, 0.5)",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    fontSize: "20px",
+                    fontWeight: "bold",
                     pointerEvents: "auto",
                     cursor: "pointer",
+                    userSelect: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.8)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
                   }}
                 >
                   &gt;
