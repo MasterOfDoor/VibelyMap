@@ -137,15 +137,25 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
       // Yeni mekan açıldığında Gemini fotoğraf analizi yap
       if (isNewPlace && place) {
+        console.log("[DetailPanel] AI analizi başlatılıyor:", place.name);
         analyzePlacePhotos(place).then((tags) => {
+          console.log("[DetailPanel] AI analizi tamamlandı, etiketler:", tags);
           if (tags.length > 0) {
             setPlaceDetails((prev) => {
               if (!prev) return prev;
+              const newTags = [...(prev.tags || []), ...tags];
+              console.log("[DetailPanel] Yeni etiketler eklendi:", {
+                prevTags: prev.tags,
+                newTags: tags,
+                allTags: newTags,
+              });
               return {
                 ...prev,
-                tags: [...(prev.tags || []), ...tags],
+                tags: newTags,
               };
             });
+          } else {
+            console.warn("[DetailPanel] AI analizi boş etiket döndü");
           }
         }).catch((error) => {
           console.error("[DetailPanel] Gemini analizi hatası:", error);
@@ -211,14 +221,17 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     return filtered;
   }, [placeDetails?.photos, placeDetails?.photo, placeDetails?.name]);
 
-  // Photos değiştiğinde index'i sıfırla
+  // Photos değiştiğinde index'i sıfırla (sadece photos.length değiştiğinde)
   useEffect(() => {
-    if (placeDetails) {
-      if (photos.length > 0 && currentPhotoIndex >= photos.length) {
-        setCurrentPhotoIndex(0);
-      }
+    if (placeDetails && photos.length > 0) {
+      setCurrentPhotoIndex((prev) => {
+        if (prev >= photos.length) {
+          return 0;
+        }
+        return prev;
+      });
     }
-  }, [placeDetails, photos, currentPhotoIndex]);
+  }, [placeDetails?.id, photos.length]);
 
   // Klavye ile navigasyon (ESC ile kapat, ok tuşları ile gezin)
   useEffect(() => {
@@ -242,11 +255,6 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
   const handlePrevPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log("[DetailPanel] handlePrevPhoto:", {
-      currentIndex: currentPhotoIndex,
-      photosLength: photos.length,
-      photos: photos,
-    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev - 1 + photos.length) % photos.length;
@@ -256,16 +264,11 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     } else {
       console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos, currentPhotoIndex]);
+  }, [photos]);
 
   const handleNextPhoto = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    console.log("[DetailPanel] handleNextPhoto:", {
-      currentIndex: currentPhotoIndex,
-      photosLength: photos.length,
-      photos: photos,
-    });
     if (photos.length > 1) {
       setCurrentPhotoIndex((prev) => {
         const newIndex = (prev + 1) % photos.length;
@@ -275,7 +278,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
     } else {
       console.warn("[DetailPanel] Fotoğraf yok veya tek fotoğraf var, navigasyon yapılamıyor");
     }
-  }, [photos, currentPhotoIndex]);
+  }, [photos]);
 
   const openFullscreen = () => {
     setIsFullscreen(true);

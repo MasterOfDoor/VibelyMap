@@ -11,6 +11,35 @@ interface TopBarProps {
   onEventsClick: () => void;
 }
 
+// localStorage'dan profil fotoğrafını yükle
+function loadProfileAvatar(address: string | undefined): string | null {
+  if (!address) return null;
+  try {
+    const stored = localStorage.getItem(`profile_avatar_${address.toLowerCase()}`);
+    return stored;
+  } catch {
+    return null;
+  }
+}
+
+// Avatar'ı uygula
+function applyAvatarToElement(element: HTMLElement | null, avatarDataUrl: string | null): void {
+  if (!element) return;
+  
+  if (avatarDataUrl) {
+    element.style.backgroundImage = `url(${avatarDataUrl})`;
+    element.style.backgroundSize = "cover";
+    element.style.backgroundPosition = "center";
+    element.textContent = "";
+    element.classList.add("with-photo");
+  } else {
+    element.style.backgroundImage = "";
+    element.style.backgroundSize = "";
+    element.style.backgroundPosition = "";
+    element.classList.remove("with-photo");
+  }
+}
+
 export default function TopBar({
   onMenuToggle,
   onSearchClick,
@@ -25,6 +54,17 @@ export default function TopBar({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Avatar'ı yükle ve güncelle
+  useEffect(() => {
+    if (isMounted && isConnected && address) {
+      const savedAvatar = loadProfileAvatar(address);
+      const avatarElement = document.querySelector("#profileButton .avatar") as HTMLElement;
+      if (avatarElement) {
+        applyAvatarToElement(avatarElement, savedAvatar);
+      }
+    }
+  }, [isMounted, isConnected, address]);
 
   return (
     <div className="top-bar">

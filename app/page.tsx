@@ -16,8 +16,6 @@ import ResultsPanel from "./components/ResultsPanel";
 import DetailPanel from "./components/DetailPanel";
 import FilterPanel, { FilterState } from "./components/FilterPanel";
 import ProfilePanel from "./components/ProfilePanel";
-import { sdk } from '@farcaster/miniapp-sdk';
-
 
 // Leaflet haritasını dinamik olarak yükle (SSR sorunlarını önlemek için)
 const MapComponent = dynamic(() => import("./components/MapComponent"), {
@@ -28,9 +26,12 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const { setMiniAppReady, isMiniAppReady } = useMiniKit();
 
+  // Farcaster SDK ready (if available)
   useEffect(() => {
-    sdk.actions.ready();
-}, []);
+    if (typeof window !== "undefined" && (window as any).farcaster?.sdk?.actions?.ready) {
+      (window as any).farcaster.sdk.actions.ready();
+    }
+  }, []);
 
 
   // Base Mini App SDK ready callback
@@ -177,29 +178,40 @@ export default function Home() {
         const otherFilters = Object.keys(filters.sub).filter(
           (key) => key !== "Kategori" && filters.sub[key].length > 0
         );
+        
+        // Range filtreleri var mı kontrol et
+        const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).length > 0;
+        
+        // Eğer sadece kategori seçildiyse (diğer filtreler ve range filtreleri yoksa), AI analizini marker tıklamasına ertele
+        const shouldDeferAnalysis = otherFilters.length === 0 && !hasRangeFilters;
 
-        // Gemini fotoğraf analizi yap (her mekan için ayrı API çağrısı)
         if (results.length > 0) {
-          console.log("[handleApplyFilters] Gemini analizi başlatılıyor...", results.length, "mekan için");
-          try {
-            const analysisResults = await analyzePlacesPhotos(results);
-            console.log("[handleApplyFilters] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
+          if (shouldDeferAnalysis) {
+            // Sadece kategori seçildi, AI analizini marker tıklamasına ertele
+            console.log("[handleApplyFilters] Sadece kategori seçildi, AI analizi marker tıklamasına ertelendi");
+            setPlaces(results);
+            setIsResultsOpen(true);
+          } else {
+            // Diğer filtreler veya range filtreleri var, AI analizini hemen yap
+            console.log("[handleApplyFilters] Gemini analizi başlatılıyor...", results.length, "mekan için");
+            try {
+              const analysisResults = await analyzePlacesPhotos(results);
+              console.log("[handleApplyFilters] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
 
-            // Analiz sonuçlarını places'lere uygula
-            const enrichedResults = results.map((place) => {
-              const analysisTags = analysisResults.get(place.id);
-              if (analysisTags && analysisTags.length > 0) {
-                console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
-                return {
-                  ...place,
-                  tags: [...(place.tags || []), ...analysisTags],
-                };
-              }
-              return place;
-            });
+              // Analiz sonuçlarını places'lere uygula
+              const enrichedResults = results.map((place) => {
+                const analysisTags = analysisResults.get(place.id);
+                if (analysisTags && analysisTags.length > 0) {
+                  console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
+                  return {
+                    ...place,
+                    tags: [...(place.tags || []), ...analysisTags],
+                  };
+                }
+                return place;
+              });
 
-            // Diğer filtreler varsa analiz sonrası filtreleme yap
-            if (otherFilters.length > 0) {
+              // Analiz sonrası filtreleme yap
               const filteredAfterAnalysis = filterPlaces(enrichedResults, filters);
               setPlaces(filteredAfterAnalysis);
               
@@ -208,16 +220,12 @@ export default function Home() {
               } else {
                 alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
               }
-            } else {
-              // Sadece kategori filtresi var, tüm sonuçları göster
-              setPlaces(enrichedResults);
+            } catch (error: any) {
+              console.error("[handleApplyFilters] Gemini analizi hatası:", error);
+              // Hata durumunda orijinal sonuçları göster
+              setPlaces(results);
               setIsResultsOpen(true);
             }
-          } catch (error: any) {
-            console.error("[handleApplyFilters] Gemini analizi hatası:", error);
-            // Hata durumunda orijinal sonuçları göster
-            setPlaces(results);
-            setIsResultsOpen(true);
           }
         }
       } catch (error: any) {

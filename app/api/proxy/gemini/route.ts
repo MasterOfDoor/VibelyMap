@@ -35,8 +35,24 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Request body size kontrolü
+    const contentType = request.headers.get("content-type");
+    const contentLength = request.headers.get("content-length");
+    if (contentLength) {
+      const sizeInMB = parseInt(contentLength) / (1024 * 1024);
+      console.log("[Gemini Proxy] Request body size:", sizeInMB.toFixed(2), "MB");
+      if (sizeInMB > 10) {
+        console.warn("[Gemini Proxy] Request body size exceeds 10MB limit");
+      }
+    }
+
     const body = await request.json();
     const { photoUrls, prompt } = body;
+    
+    console.log("[Gemini Proxy] Received request:", {
+      photoCount: photoUrls?.length || 0,
+      promptLength: prompt?.length || 0,
+    });
 
     if (!photoUrls || !Array.isArray(photoUrls) || photoUrls.length === 0) {
       return setCorsHeaders(
@@ -57,11 +73,12 @@ export async function POST(request: NextRequest) {
     const parts: any[] = [];
     
     // Fotoğraf base64 data'larını ekle (prefix temizleme ile)
-    photoUrls.forEach((base64WithPrefix: string) => {
-      const base64Data = cleanBase64Data(base64WithPrefix);
+    const cleanedPhotoUrls = photoUrls.map((url: string) => cleanBase64Data(url));
+    
+    cleanedPhotoUrls.forEach((base64Data: string) => {
       parts.push({
         inlineData: {
-          mimeType: "image/jpeg",
+          mime_type: "image/jpeg", // mimeType yerine mime_type kullan (Google API dokümantasyonu)
           data: base64Data, // Temizlenmiş base64 string
         },
       });
@@ -92,11 +109,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      console.error("[Gemini API] Error:", error);
+      // Önce text olarak oku, sonra JSON parse et
+      const errorText = await response.text().catch(() => "Unknown error");
+      let errorDetail: any;
+      try {
+        errorDetail = JSON.parse(errorText);
+      } catch {
+        errorDetail = { error: errorText || "Unknown error", raw: errorText };
+      }
+      console.error("[Gemini API] Error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorDetail,
+        url: geminiUrl.split("?")[0], // API key'i gizle
+      });
       return setCorsHeaders(
         NextResponse.json(
-          { error: "gemini_api_failed", detail: error },
+          { error: "gemini_api_failed", detail: errorDetail },
           { status: response.status }
         )
       );

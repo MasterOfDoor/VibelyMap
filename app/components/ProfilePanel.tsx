@@ -8,6 +8,66 @@ interface ProfilePanelProps {
   onClose: () => void;
 }
 
+// localStorage'dan profil fotoğrafı URL'ini yükle
+function loadProfileAvatar(address: string | undefined): string | null {
+  if (!address) return null;
+  try {
+    const stored = localStorage.getItem(`profile_avatar_url_${address.toLowerCase()}`);
+    return stored;
+  } catch {
+    return null;
+  }
+}
+
+// localStorage'a profil fotoğrafı URL'ini kaydet
+function saveProfileAvatarUrl(address: string | undefined, avatarUrl: string): void {
+  if (!address) return;
+  try {
+    localStorage.setItem(`profile_avatar_url_${address.toLowerCase()}`, avatarUrl);
+  } catch (error) {
+    console.error("[ProfilePanel] Avatar URL kaydedilemedi:", error);
+  }
+}
+
+// Fotoğrafı server'a upload et (Cloudinary veya fallback)
+async function uploadAvatar(file: File, address: string): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("address", address);
+
+  const response = await fetch("/api/upload/avatar", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(error.error || "Upload failed");
+  }
+
+  const data = await response.json();
+  return data.url;
+}
+
+// Avatar'ı uygula (hem ProfilePanel hem de TopBar için)
+function applyAvatar(elementId: string, avatarDataUrl: string | null): void {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  
+  if (avatarDataUrl) {
+    element.style.backgroundImage = `url(${avatarDataUrl})`;
+    element.style.backgroundSize = "cover";
+    element.style.backgroundPosition = "center";
+    element.textContent = "";
+    element.classList.add("with-photo");
+  } else {
+    element.style.backgroundImage = "";
+    element.style.backgroundSize = "";
+    element.style.backgroundPosition = "";
+    element.classList.remove("with-photo");
+  }
+}
+
 export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
@@ -19,6 +79,25 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
     setIsMounted(true);
   }, []);
 
+  // Sayfa yüklendiğinde kaydedilmiş avatar'ı yükle
+  useEffect(() => {
+    if (isMounted && isConnected && address) {
+      const savedAvatar = loadProfileAvatar(address);
+      if (savedAvatar) {
+        applyAvatar("profileAvatarLarge", savedAvatar);
+        // TopBar'daki profil avatar'ını da güncelle
+        const topBarAvatar = document.querySelector("#profileButton .avatar") as HTMLElement;
+        if (topBarAvatar) {
+          topBarAvatar.style.backgroundImage = `url(${savedAvatar})`;
+          topBarAvatar.style.backgroundSize = "cover";
+          topBarAvatar.style.backgroundPosition = "center";
+          topBarAvatar.textContent = "";
+          topBarAvatar.classList.add("with-photo");
+        }
+      }
+    }
+  }, [isMounted, isConnected, address]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -26,23 +105,62 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       avatarInputRef.current?.click();
     };
 
-    const handleFileChange = (e: Event) => {
+    const handleFileChange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
-      if (file) {
-        // Fotoğrafı oku ve göster
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const result = event.target?.result as string;
+      if (file && address) {
+        // Dosya boyutu kontrolü (maksimum 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+          alert("Fotoğraf boyutu çok büyük. Maksimum 5MB olmalıdır.");
+          return;
+        }
+
+        try {
+          // Yükleme başladı mesajı
           const avatarElement = document.getElementById("profileAvatarLarge");
           if (avatarElement) {
-            avatarElement.style.backgroundImage = `url(${result})`;
-            avatarElement.style.backgroundSize = "cover";
-            avatarElement.style.backgroundPosition = "center";
-            avatarElement.textContent = ""; // Metni kaldır
+            avatarElement.textContent = "Yükleniyor...";
           }
-        };
-        reader.readAsDataURL(file);
+
+          // Server'a upload et (Cloudinary veya fallback)
+          const imageUrl = await uploadAvatar(file, address);
+          
+          // URL'i localStorage'a kaydet
+          saveProfileAvatarUrl(address, imageUrl);
+          
+          // ProfilePanel'deki avatar'ı güncelle
+          applyAvatar("profileAvatarLarge", imageUrl);
+          
+          // TopBar'daki profil avatar'ını da güncelle
+          const topBarAvatar = document.querySelector("#profileButton .avatar") as HTMLElement;
+          if (topBarAvatar) {
+            topBarAvatar.style.backgroundImage = `url(${imageUrl})`;
+            topBarAvatar.style.backgroundSize = "cover";
+            topBarAvatar.style.backgroundPosition = "center";
+            topBarAvatar.textContent = "";
+            topBarAvatar.classList.add("with-photo");
+          }
+          
+          // Başarı mesajı göster
+          if (typeof window !== "undefined" && (window as any).showToast) {
+            (window as any).showToast("Profil fotoğrafı güncellendi");
+          } else {
+            console.log("Profil fotoğrafı güncellendi");
+          }
+        } catch (error: any) {
+          console.error("[ProfilePanel] Upload hatası:", error);
+          alert(`Fotoğraf yüklenirken bir hata oluştu: ${error.message || "Bilinmeyen hata"}`);
+          
+          // Hata durumunda avatar'ı sıfırla
+          const avatarElement = document.getElementById("profileAvatarLarge");
+          if (avatarElement && address) {
+            avatarElement.textContent = address.slice(2, 4).toUpperCase();
+            avatarElement.style.backgroundImage = "";
+          }
+        }
+      } else if (!address) {
+        alert("Fotoğraf yüklemek için önce cüzdanınıza bağlanmalısınız.");
       }
     };
 

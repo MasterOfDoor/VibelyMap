@@ -19,14 +19,12 @@ export interface FilterState {
   };
 }
 
-const baseCriteria = ["Isiklandirma", "Yemek", "Priz", "Fiyat", "Ambiyans", "Oturma", "Deniz", "Sigara"];
+const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
 
 const criterionOptions: { [key: string]: string[] } = {
   Kategori: ["Kafe", "Restoran", "Bar"],
   Isiklandirma: ["Los", "Dogal", "Canli"],
-  Yemek: ["Tatli", "Kahvalti", "Vegan", "Atistirmalik"],
   Priz: ["Masada priz"],
-  Fiyat: ["Uygun", "Orta", "Pahali"],
   Ambiyans: ["Retro", "Modern"],
   Oturma: ["Koltuk var", "Koltuk yok"],
   Deniz: ["Deniz goruyor", "Deniz gormuyor"],
