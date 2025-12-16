@@ -79,11 +79,13 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
     setIsMounted(true);
   }, []);
 
-  // Sayfa yüklendiğinde kaydedilmiş avatar'ı yükle
+  // Sayfa yüklendiğinde ve panel açıldığında kaydedilmiş avatar'ı yükle
   useEffect(() => {
-    if (isMounted && isConnected && address) {
+    if (isMounted && isConnected && address && isOpen) {
+      // Panel açıldığında avatar'ı yükle
       const savedAvatar = loadProfileAvatar(address);
       if (savedAvatar) {
+        // ProfilePanel'deki avatar'ı güncelle
         applyAvatar("profileAvatarLarge", savedAvatar);
         // TopBar'daki profil avatar'ını da güncelle
         const topBarAvatar = document.querySelector("#profileButton .avatar") as HTMLElement;
@@ -94,9 +96,19 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           topBarAvatar.textContent = "";
           topBarAvatar.classList.add("with-photo");
         }
+      } else {
+        // Avatar yoksa varsayılan göster
+        const avatarElement = document.getElementById("profileAvatarLarge");
+        if (avatarElement && address) {
+          avatarElement.textContent = address.slice(2, 4).toUpperCase();
+          avatarElement.style.backgroundImage = "";
+          avatarElement.style.backgroundSize = "";
+          avatarElement.style.backgroundPosition = "";
+          avatarElement.classList.remove("with-photo");
+        }
       }
     }
-  }, [isMounted, isConnected, address]);
+  }, [isMounted, isConnected, address, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;

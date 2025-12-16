@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { useMapPlaces } from "./hooks/useMapPlaces";
 import { useMapSearch } from "./hooks/useMapSearch";
 import { useMapFilters } from "./hooks/useMapFilters";
-import { analyzePlacesPhotos } from "./hooks/Gemini_analysis";
+import { analyzePlacesPhotos } from "./hooks/ChatGPT_analysis";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { Place } from "./components/DetailPanel";
 import { buildQueryFromFilters } from "./utils/filterHelpers";
@@ -202,8 +202,15 @@ export default function Home() {
           (key) => key !== "Kategori" && filters.sub[key].length > 0
         );
         
-        // Range filtreleri var mı kontrol et
-        const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).length > 0;
+        // Range filtreleri var mı kontrol et (default değerler dikkate alınmaz)
+        // Default değerler: Isiklandirma: 3, Oturma: 0
+        const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).some((key) => {
+          const value = filters.ranges![key];
+          // Isiklandirma default: 3, Oturma default: 0
+          if (key === "Isiklandirma" && value === 3) return false;
+          if (key === "Oturma" && value === 0) return false;
+          return true; // Default dışında bir değer varsa true döndür
+        });
         
         // Eğer sadece kategori seçildiyse (diğer filtreler ve range filtreleri yoksa), AI analizini marker tıklamasına ertele
         const shouldDeferAnalysis = otherFilters.length === 0 && !hasRangeFilters;
@@ -216,10 +223,10 @@ export default function Home() {
             setIsResultsOpen(true);
           } else {
             // Diğer filtreler veya range filtreleri var, AI analizini hemen yap
-            console.log("[handleApplyFilters] Gemini analizi başlatılıyor...", results.length, "mekan için");
+            console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT)...", results.length, "mekan için");
             try {
               const analysisResults = await analyzePlacesPhotos(results);
-              console.log("[handleApplyFilters] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
+              console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
 
               // Analiz sonuçlarını places'lere uygula
               const enrichedResults = results.map((place) => {
@@ -244,7 +251,7 @@ export default function Home() {
                 alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
               }
             } catch (error: any) {
-              console.error("[handleApplyFilters] Gemini analizi hatası:", error);
+              console.error("[handleApplyFilters] AI analizi hatası:", error);
               // Hata durumunda orijinal sonuçları göster
               setPlaces(results);
               setIsResultsOpen(true);

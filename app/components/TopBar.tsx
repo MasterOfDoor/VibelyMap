@@ -11,12 +11,16 @@ interface TopBarProps {
   onEventsClick: () => void;
 }
 
-// localStorage'dan profil fotoğrafını yükle
+// localStorage'dan profil fotoğrafını yükle (ProfilePanel ile aynı key kullan)
 function loadProfileAvatar(address: string | undefined): string | null {
   if (!address) return null;
   try {
-    const stored = localStorage.getItem(`profile_avatar_${address.toLowerCase()}`);
-    return stored;
+    // Önce yeni key'i dene (profile_avatar_url_)
+    const stored = localStorage.getItem(`profile_avatar_url_${address.toLowerCase()}`);
+    if (stored) return stored;
+    // Eski key'i de kontrol et (backward compatibility)
+    const oldStored = localStorage.getItem(`profile_avatar_${address.toLowerCase()}`);
+    return oldStored;
   } catch {
     return null;
   }

@@ -82,10 +82,19 @@ export default function FilterPanel({
       alert("En az bir filtre seçmelisin.");
       return;
     }
-    // Range değerlerini de ekle
+    // Range değerlerini ekle, ama default değerlerdeyse ekleme
+    // Default değerler: Isiklandirma: 3, Oturma: 0
+    const ranges: { [key: string]: number } = {};
+    if (rangeValues.Isiklandirma !== 3) {
+      ranges.Isiklandirma = rangeValues.Isiklandirma;
+    }
+    if (rangeValues.Oturma !== 0) {
+      ranges.Oturma = rangeValues.Oturma;
+    }
+    
     const filtersWithRanges = {
       ...selectedFilters,
-      ranges: rangeValues,
+      ranges: Object.keys(ranges).length > 0 ? ranges : undefined,
     };
     onApplyFilters(filtersWithRanges);
   };

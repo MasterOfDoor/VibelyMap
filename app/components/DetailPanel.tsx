@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useProxy } from "../hooks/useProxy";
 import { useReviews, BlockchainReview } from "../hooks/useReviews";
 import { useSmartWallet } from "../hooks/useSmartWallet";
-import { analyzePlacePhotos } from "../hooks/Gemini_analysis";
+import { analyzePlacePhotos } from "../hooks/ChatGPT_analysis";
 
 export interface Place {
   id: string;
@@ -142,10 +142,10 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
         loadPlaceDetails(place.id);
       }
 
-      // Yeni mekan açıldığında Gemini fotoğraf analizi yap
+      // Yeni mekan açıldığında AI fotoğraf analizi yap (ChatGPT primary, Gemini fallback)
       // Her zaman analiz yap (depodan kontrol edilecek)
       if (isNewPlace && place) {
-        console.log("[DetailPanel] AI analizi başlatılıyor:", place.name);
+        console.log("[DetailPanel] AI analizi başlatılıyor (ChatGPT):", place.name);
         analyzePlacePhotos(place).then((tags) => {
           console.log("[DetailPanel] AI analizi tamamlandı, etiketler:", tags);
           if (tags.length > 0) {
@@ -173,7 +173,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
             console.warn("[DetailPanel] AI analizi boş etiket döndü");
           }
         }).catch((error) => {
-          console.error("[DetailPanel] Gemini analizi hatası:", error);
+          console.error("[DetailPanel] AI analizi hatası:", error);
         });
       }
     }
@@ -306,6 +306,52 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
     setIsFullscreen(false);
   };
 
+  // Tag helper functions
+  const getTagCategory = (tag: string): string => {
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes("ışıklandırma") || lowerTag.includes("isiklandirma")) return "lighting";
+    if (lowerTag.includes("koltuk") || lowerTag.includes("oturma")) return "seating";
+    if (lowerTag.includes("sigara")) return "smoking";
+    if (lowerTag.includes("deniz")) return "view";
+    if (lowerTag.includes("priz")) return "power";
+    if (lowerTag.includes("retro") || lowerTag.includes("modern")) return "ambiance";
+    if (lowerTag.includes("kafe") || lowerTag.includes("restoran") || lowerTag.includes("bar")) return "category";
+    return "general";
+  };
+
+  const getTagIcon = (tag: string): string => {
+    const category = getTagCategory(tag);
+    const iconMap: { [key: string]: string } = {
+      lighting: "💡",
+      seating: "🪑",
+      smoking: "🚬",
+      view: "🌊",
+      power: "🔌",
+      ambiance: "🎨",
+      category: "📍",
+      general: "🏷️",
+    };
+    return iconMap[category] || "🏷️";
+  };
+
+  const getTagTooltip = (tag: string): string => {
+    const lowerTag = tag.toLowerCase();
+    if (lowerTag.includes("ışıklandırma") || lowerTag.includes("isiklandirma")) {
+      const level = tag.match(/\d+/)?.[0];
+      return level ? `Işıklandırma seviyesi: ${level}/5` : "Işıklandırma bilgisi";
+    }
+    if (lowerTag.includes("koltuk")) {
+      const level = tag.match(/\d+/)?.[0];
+      return level ? `Oturma alanı seviyesi: ${level}/3` : "Oturma alanı bilgisi";
+    }
+    if (lowerTag.includes("sigara")) return "Sigara içilebilir alan";
+    if (lowerTag.includes("deniz")) return "Deniz manzarası";
+    if (lowerTag.includes("priz")) return "Masada priz mevcut";
+    if (lowerTag.includes("retro")) return "Retro ambiyans";
+    if (lowerTag.includes("modern")) return "Modern tasarım";
+    return tag;
+  };
+
   if (!isOpen || !placeDetails) return null;
 
   return (
@@ -329,17 +375,69 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
               Adres: {placeDetails.address}
             </div>
           )}
-          <div id="placeTags" className="tags">
-            {placeDetails.tags?.map((tag, index) => (
-              <span key={index} className="tag">
-                {tag}
-              </span>
-            ))}
-            {placeDetails.features?.map((feature, index) => (
-              <span key={`feat-${index}`} className="tag subtag">
-                {feature}
-              </span>
-            ))}
+          <div id="placeTags" className="tags-container">
+            {placeDetails.tags && placeDetails.tags.length > 0 && (
+              <div className="tags-section">
+                <div className="tags-header">
+                  <span className="tags-label">Etiketler</span>
+                  {placeDetails.tags.length > 0 && (
+                    <span className="tags-count">{placeDetails.tags.length}</span>
+                  )}
+                </div>
+                <div className="tags" role="list">
+                  {placeDetails.tags.map((tag, index) => {
+                    // AI analizi etiketlerini belirle (yeni eklenen etiketler genellikle AI'dan gelir)
+                    const isAITag = tag.includes("Işıklandırma") || 
+                                   tag.includes("Retro") || 
+                                   tag.includes("Modern") || 
+                                   tag.includes("Koltuk") || 
+                                   tag.includes("Sigara") ||
+                                   tag.includes("Deniz") ||
+                                   tag.includes("Priz");
+                    const tagCategory = getTagCategory(tag);
+                    
+                    return (
+                      <span
+                        key={`tag-${index}`}
+                        className={`tag ${isAITag ? 'tag-ai' : 'tag-default'} tag-${tagCategory}`}
+                        role="listitem"
+                        title={getTagTooltip(tag)}
+                        aria-label={`${tag} - ${getTagTooltip(tag)}`}
+                        data-tag={tag}
+                        data-category={tagCategory}
+                      >
+                        <span className="tag-icon">{getTagIcon(tag)}</span>
+                        <span className="tag-text">{tag}</span>
+                        {isAITag && (
+                          <span className="tag-badge" aria-label="AI analizi etiketi">
+                            AI
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {placeDetails.features && placeDetails.features.length > 0 && (
+              <div className="tags-section">
+                <div className="tags-header">
+                  <span className="tags-label">Özellikler</span>
+                </div>
+                <div className="tags" role="list">
+                  {placeDetails.features.map((feature, index) => (
+                    <span
+                      key={`feat-${index}`}
+                      className="tag tag-feature subtag"
+                      role="listitem"
+                      title={feature}
+                    >
+                      <span className="tag-text">{feature}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <button
@@ -569,7 +667,11 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
           {photos.length > 1 && (
             <>
               <button
-                onClick={handlePrevPhoto}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handlePrevPhoto(e);
+                }}
                 type="button"
                 style={{
                   position: "fixed",
@@ -584,7 +686,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                   height: "70px",
                   borderRadius: "50%",
                   cursor: "pointer",
-                  zIndex: 100001,
+                  zIndex: 100002,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -596,6 +698,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                   padding: 0,
                   WebkitAppearance: "none",
                   appearance: "none",
+                  pointerEvents: "auto",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-50%) scale(1.15)";
@@ -610,7 +713,11 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                 &lt;
               </button>
               <button
-                onClick={handleNextPhoto}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  handleNextPhoto(e);
+                }}
                 type="button"
                 style={{
                   position: "fixed",
@@ -625,7 +732,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                   height: "70px",
                   borderRadius: "50%",
                   cursor: "pointer",
-                  zIndex: 100001,
+                  zIndex: 100002,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -637,6 +744,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                   padding: 0,
                   WebkitAppearance: "none",
                   appearance: "none",
+                  pointerEvents: "auto",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-50%) scale(1.15)";

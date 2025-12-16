@@ -242,28 +242,10 @@ async function saveAITags(placeId: string, tags: string[]): Promise<void> {
   }
 }
 
-// Tek bir mekan için fotoğraf analizi yap (Gemini ile, hata durumunda ChatGPT fallback)
-export async function analyzePlacePhotos(place: Place): Promise<string[]> {
-  log.analysis("Starting photo analysis", {
-    action: "analysis_start",
-    placeId: place.id,
-    placeName: place.name,
-  });
-  
-  // Önce depodan kontrol et
-  const cachedTags = await getCachedAITags(place.id);
-  if (cachedTags) {
-    log.analysis("Using cached tags, skipping analysis", {
-      action: "analysis_skipped",
-      placeId: place.id,
-      placeName: place.name,
-      tagsCount: cachedTags.length,
-    });
-    return cachedTags;
-  }
-  
-  log.analysis("No cached tags found, proceeding with analysis", {
-    action: "analysis_proceed",
+// Tek bir mekan için fotoğraf analizi yap (sadece Gemini ile, fallback yok)
+export async function analyzePlacePhotosWithGemini(place: Place): Promise<string[]> {
+  log.gemini("Starting Gemini analysis", {
+    action: "gemini_analysis_start",
     placeId: place.id,
     placeName: place.name,
   });
@@ -274,8 +256,8 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
     ...(place.photo ? [place.photo] : []),
   ].filter(Boolean);
   
-  log.analysis("Place photo information collected", {
-    action: "photos_info",
+  log.gemini("Place photo information collected", {
+    action: "gemini_photos_info",
     placeId: place.id,
     placeName: place.name,
     photosArrayLength: place.photos?.length || 0,
@@ -286,11 +268,15 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
   const photoUrls = allPhotoUrls.slice(0, 6); // Maksimum 6 fotoğraf
 
   if (photoUrls.length === 0) {
-    console.log("[Photo Analysis] Fotoğraf yok, analiz yapılamıyor:", place.name);
+    log.geminiError("No photos available for analysis", {
+      action: "gemini_no_photos",
+      placeId: place.id,
+      placeName: place.name,
+    });
     return [];
   }
 
-  console.log("[Photo Analysis] Analiz başlatılıyor:", {
+  console.log("[Gemini Analysis] Analiz başlatılıyor:", {
     placeName: place.name,
     totalPhotos: allPhotoUrls.length,
     photosToAnalyze: photoUrls.length,
@@ -449,86 +435,16 @@ export async function analyzePlacePhotos(place: Place): Promise<string[]> {
     
     return tags;
   } catch (geminiError: any) {
-    // Gemini başarısız oldu, ChatGPT fallback'e geç
-    log.geminiError("Gemini analysis failed, falling back to ChatGPT", {
-      action: "gemini_fallback",
+    // Gemini başarısız oldu, hatayı throw et ki fallback çalışsın
+    log.geminiError("Gemini analysis failed", {
+      action: "gemini_analysis_error",
       placeId: place.id,
       placeName: place.name,
       error: geminiError.message,
     }, geminiError);
-    
-    try {
-      // ChatGPT analiz fonksiyonunu import et ve kullan
-      const { analyzePlacePhotosWithChatGPT } = await import("./ChatGPT_analysis");
-      
-      log.chatgpt("Starting ChatGPT fallback analysis", {
-        action: "chatgpt_fallback_start",
-        placeId: place.id,
-        placeName: place.name,
-      });
-      
-      const tags = await analyzePlacePhotosWithChatGPT(place);
-      
-      log.chatgpt("ChatGPT fallback analysis completed", {
-        action: "chatgpt_fallback_success",
-        placeId: place.id,
-        placeName: place.name,
-        tagsCount: tags.length,
-      });
-      
-      // Etiketleri depoya kaydet
-      if (tags.length > 0) {
-        await saveAITags(place.id, tags);
-      }
-      
-      return tags;
-    } catch (chatgptError: any) {
-      // Her iki API de başarısız oldu
-      log.analysisError("Both Gemini and ChatGPT failed", {
-        action: "all_apis_failed",
-        placeId: place.id,
-        placeName: place.name,
-        geminiError: geminiError.message,
-        chatgptError: chatgptError.message,
-      }, chatgptError);
-      return [];
-    }
+    throw geminiError; // Hata durumunda throw et ki fallback çalışsın
   }
 }
 
 // Birden fazla mekan için toplu analiz (her mekan için ayrı API çağrısı)
-export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
-  const resultMap = new Map<string, string[]>();
-
-  log.analysis("Starting batch analysis", {
-    action: "batch_analysis_start",
-    placesCount: places.length,
-  });
-
-  // Her mekan için sırayla analiz yap
-  for (const place of places) {
-    try {
-      const tags = await analyzePlacePhotos(place);
-      if (tags.length > 0) {
-        resultMap.set(place.id, tags);
-      }
-      // Rate limiting için kısa bir bekleme
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    } catch (error: any) {
-      log.analysisError("Place analysis error in batch", {
-        action: "batch_analysis_error",
-        placeId: place.id,
-        placeName: place.name,
-      }, error);
-    }
-  }
-
-  log.analysis("Batch analysis completed", {
-    action: "batch_analysis_complete",
-    placesCount: places.length,
-    resultsCount: resultMap.size,
-  });
-  
-  return resultMap;
-}
 
