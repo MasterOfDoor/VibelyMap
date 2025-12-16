@@ -2,6 +2,7 @@
 
 import { useAccount } from "wagmi";
 import { useEffect, useRef, useState } from "react";
+import { useProfileAvatar } from "../hooks/useProfileAvatar";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -11,8 +12,13 @@ interface ProfilePanelProps {
 export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarUploadBtnRef = useRef<HTMLButtonElement>(null);
+  
+  // Cloudinary avatar hook
+  const { avatarUrl, isLoading, uploadAvatar } = useProfileAvatar(address);
 
   // Client-side hydration için
   useEffect(() => {
@@ -26,11 +32,14 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       avatarInputRef.current?.click();
     };
 
-    const handleFileChange = (e: Event) => {
+    const handleFileChange = async (e: Event) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
-      if (file) {
-        // Fotoğrafı oku ve göster
+      if (file && address) {
+        setUploadError(null);
+        setUploadProgress(0);
+
+        // Show preview immediately
         const reader = new FileReader();
         reader.onload = (event) => {
           const result = event.target?.result as string;
@@ -39,10 +48,34 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             avatarElement.style.backgroundImage = `url(${result})`;
             avatarElement.style.backgroundSize = "cover";
             avatarElement.style.backgroundPosition = "center";
-            avatarElement.textContent = ""; // Metni kaldır
+            avatarElement.textContent = "";
+            avatarElement.classList.add("with-photo");
           }
         };
         reader.readAsDataURL(file);
+
+        // Upload to Cloudinary
+        setUploadProgress(30);
+        try {
+          const result = await uploadAvatar(file);
+          setUploadProgress(100);
+          
+          if (result.success && result.url) {
+            // Avatar will be updated automatically via hook
+            // Reset input
+            if (target) {
+              target.value = "";
+            }
+            // Show success briefly
+            setTimeout(() => setUploadProgress(0), 2000);
+          } else {
+            setUploadError(result.error || "Upload failed");
+            setUploadProgress(0);
+          }
+        } catch (error: any) {
+          setUploadError(error.message || "Upload failed");
+          setUploadProgress(0);
+        }
       }
     };
 
@@ -72,25 +105,48 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
     <section id="profilePanel" className="panel profile visible">
       <div className="profile-hero">
         <div className="hero-avatar-wrap">
-          <div className="hero-avatar" id="profileAvatarLarge" tabIndex={0}>
-            {isMounted && isConnected && address
+          <div 
+            className="hero-avatar" 
+            id="profileAvatarLarge" 
+            tabIndex={0}
+            style={{
+              backgroundImage: avatarUrl ? `url(${avatarUrl})` : undefined,
+              backgroundSize: avatarUrl ? "cover" : undefined,
+              backgroundPosition: avatarUrl ? "center" : undefined,
+            }}
+          >
+            {!avatarUrl && (isMounted && isConnected && address
               ? address.slice(2, 4).toUpperCase()
-              : "P"}
+              : "P")}
+            {isLoading && !avatarUrl && (
+              <span className="avatar-loading">⏳</span>
+            )}
           </div>
+          {uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="upload-progress">
+              <div className="progress-bar" style={{ width: `${uploadProgress}%` }}></div>
+              <span className="progress-text">{uploadProgress}%</span>
+            </div>
+          )}
+          {uploadError && (
+            <div className="upload-error" role="alert">
+              {uploadError}
+            </div>
+          )}
           <button 
             type="button" 
             id="avatarUploadBtn" 
             ref={avatarUploadBtnRef}
             className="avatar-upload-btn"
+            disabled={isLoading || uploadProgress > 0}
           >
-            Foto ekle
+            {uploadProgress > 0 ? "Yükleniyor..." : "Foto ekle"}
           </button>
           <input
             type="file"
             id="avatarInput"
             ref={avatarInputRef}
-            accept="image/*"
-            capture="environment"
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
           />
         </div>

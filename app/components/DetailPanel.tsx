@@ -512,13 +512,13 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
                         data-tag={tag}
                         data-category={tagCategory}
                       >
-                        <span className="tag-icon">{getTagIcon(tag)}</span>
-                        <span className="tag-text">{tag}</span>
                         {isAITag && (
-                          <span className="tag-badge" aria-label="AI analizi etiketi">
-                            AI
+                          <span className="tag-badge tag-badge-ai" aria-label="AI analizi etiketi" title="AI ile analiz edildi">
+                            🤖
                           </span>
                         )}
+                        <span className="tag-icon">{getTagIcon(tag)}</span>
+                        <span className="tag-text">{tag}</span>
                       </span>
                     );
                   })}

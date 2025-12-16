@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
+import { useProfileAvatar } from "../hooks/useProfileAvatar";
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -9,35 +10,6 @@ interface TopBarProps {
   onLocationClick: () => void;
   onProfileClick: () => void;
   onEventsClick: () => void;
-}
-
-// localStorage'dan profil fotoğrafını yükle
-function loadProfileAvatar(address: string | undefined): string | null {
-  if (!address) return null;
-  try {
-    const stored = localStorage.getItem(`profile_avatar_${address.toLowerCase()}`);
-    return stored;
-  } catch {
-    return null;
-  }
-}
-
-// Avatar'ı uygula
-function applyAvatarToElement(element: HTMLElement | null, avatarDataUrl: string | null): void {
-  if (!element) return;
-  
-  if (avatarDataUrl) {
-    element.style.backgroundImage = `url(${avatarDataUrl})`;
-    element.style.backgroundSize = "cover";
-    element.style.backgroundPosition = "center";
-    element.textContent = "";
-    element.classList.add("with-photo");
-  } else {
-    element.style.backgroundImage = "";
-    element.style.backgroundSize = "";
-    element.style.backgroundPosition = "";
-    element.classList.remove("with-photo");
-  }
 }
 
 export default function TopBar({
@@ -49,22 +21,35 @@ export default function TopBar({
 }: TopBarProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Cloudinary avatar hook
+  const { avatarUrl, isLoading } = useProfileAvatar(address);
 
   // Client-side hydration için
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Avatar'ı yükle ve güncelle
+  // Avatar'ı uygula
   useEffect(() => {
     if (isMounted && isConnected && address) {
-      const savedAvatar = loadProfileAvatar(address);
       const avatarElement = document.querySelector("#profileButton .avatar") as HTMLElement;
       if (avatarElement) {
-        applyAvatarToElement(avatarElement, savedAvatar);
+        if (avatarUrl) {
+          avatarElement.style.backgroundImage = `url(${avatarUrl})`;
+          avatarElement.style.backgroundSize = "cover";
+          avatarElement.style.backgroundPosition = "center";
+          avatarElement.textContent = "";
+          avatarElement.classList.add("with-photo");
+        } else {
+          avatarElement.style.backgroundImage = "";
+          avatarElement.style.backgroundSize = "";
+          avatarElement.style.backgroundPosition = "";
+          avatarElement.classList.remove("with-photo");
+        }
       }
     }
-  }, [isMounted, isConnected, address]);
+  }, [isMounted, isConnected, address, avatarUrl]);
 
   return (
     <div className="top-bar">
