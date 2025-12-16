@@ -6,7 +6,7 @@ import { useAccount } from "wagmi";
 import { useMapPlaces } from "./hooks/useMapPlaces";
 import { useMapSearch } from "./hooks/useMapSearch";
 import { useMapFilters } from "./hooks/useMapFilters";
-import { usePlaceAnalysis } from "./hooks/usePlaceAnalysis";
+import { analyzePlacesPhotos } from "./hooks/Gemini_analysis";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { Place } from "./components/DetailPanel";
 import { buildQueryFromFilters } from "./utils/filterHelpers";
@@ -48,7 +48,6 @@ export default function Home() {
     performSearch,
   } = useMapSearch();
   const { filterPlaces, applyFilters, resetFilters } = useMapFilters();
-  const { analyzePlaces } = usePlaceAnalysis();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
@@ -82,37 +81,10 @@ export default function Home() {
       
       if (results.length > 0) {
         setIsResultsOpen(true);
-        
-        // AI analizi yap
-        console.log("[handleSearch] AI analizi başlatılıyor...");
-        try {
-          const analysisResults = await analyzePlaces(results);
-          console.log("[handleSearch] AI analizi tamamlandı, sonuç:", analysisResults.size);
-          
-          // Sonuçları zenginleştir
-          const enrichedResults = results.map((place) => {
-            const analysis = analysisResults.get(place.id);
-            if (analysis) {
-              console.log("[handleSearch] Zenginleştirildi:", place.name, "Labels:", analysis.labels);
-              return {
-                ...place,
-                tags: [...(place.tags || []), ...analysis.tags],
-                features: [...(place.features || []), ...analysis.features],
-                labels: analysis.labels,
-              };
-            }
-            return place;
-          });
-          
-          setPlaces(enrichedResults);
-        } catch (error) {
-          console.error("[handleSearch] AI analizi hatası:", error);
-          // Hata durumunda orijinal sonuçları göster
-          setPlaces(results);
-        }
+        setPlaces(results);
       }
     },
-    [performSearch, resetFilters, analyzePlaces, setPlaces]
+    [performSearch, resetFilters, setPlaces]
   );
 
   const handleApplyFilters = useCallback(
@@ -206,40 +178,45 @@ export default function Home() {
           (key) => key !== "Kategori" && filters.sub[key].length > 0
         );
 
-        // AI analizi her zaman yap (sadece kategori seçilse bile)
+        // Gemini fotoğraf analizi yap (her mekan için ayrı API çağrısı)
         if (results.length > 0) {
-          console.log("[handleApplyFilters] AI analizi başlatılıyor...", results.length, "mekan için");
-          const analysisResults = await analyzePlaces(results);
-          console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
+          console.log("[handleApplyFilters] Gemini analizi başlatılıyor...", results.length, "mekan için");
+          try {
+            const analysisResults = await analyzePlacesPhotos(results);
+            console.log("[handleApplyFilters] Gemini analizi tamamlandı, sonuç:", analysisResults.size);
 
-          // AI sonuçlarını places'lere uygula
-          const enrichedResults = results.map((place) => {
-            const analysis = analysisResults.get(place.id);
-            if (analysis) {
-              console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Labels:", analysis.labels);
-              return {
-                ...place,
-                tags: [...(place.tags || []), ...analysis.tags],
-                features: [...(place.features || []), ...analysis.features],
-                labels: analysis.labels,
-              };
-            }
-            return place;
-          });
+            // Analiz sonuçlarını places'lere uygula
+            const enrichedResults = results.map((place) => {
+              const analysisTags = analysisResults.get(place.id);
+              if (analysisTags && analysisTags.length > 0) {
+                console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
+                return {
+                  ...place,
+                  tags: [...(place.tags || []), ...analysisTags],
+                };
+              }
+              return place;
+            });
 
-          // Diğer filtreler varsa AI analizi sonrası filtreleme yap
-          if (otherFilters.length > 0) {
-            const filteredAfterAnalysis = filterPlaces(enrichedResults, filters);
-            setPlaces(filteredAfterAnalysis);
-            
-            if (filteredAfterAnalysis.length > 0) {
-              setIsResultsOpen(true);
+            // Diğer filtreler varsa analiz sonrası filtreleme yap
+            if (otherFilters.length > 0) {
+              const filteredAfterAnalysis = filterPlaces(enrichedResults, filters);
+              setPlaces(filteredAfterAnalysis);
+              
+              if (filteredAfterAnalysis.length > 0) {
+                setIsResultsOpen(true);
+              } else {
+                alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
+              }
             } else {
-              alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
+              // Sadece kategori filtresi var, tüm sonuçları göster
+              setPlaces(enrichedResults);
+              setIsResultsOpen(true);
             }
-          } else {
-            // Sadece kategori filtresi var, tüm sonuçları göster
-            setPlaces(enrichedResults);
+          } catch (error: any) {
+            console.error("[handleApplyFilters] Gemini analizi hatası:", error);
+            // Hata durumunda orijinal sonuçları göster
+            setPlaces(results);
             setIsResultsOpen(true);
           }
         }
@@ -248,7 +225,7 @@ export default function Home() {
         alert("Filtre uygulanırken bir hata oluştu: " + error.message);
       }
     },
-    [loadPlaces, analyzePlaces, applyFilters]
+    [loadPlaces, applyFilters, filterPlaces, setPlaces]
   );
 
   const handleResetFilters = useCallback(() => {

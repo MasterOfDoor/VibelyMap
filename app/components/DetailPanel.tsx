@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useProxy } from "../hooks/useProxy";
 import { useReviews, BlockchainReview } from "../hooks/useReviews";
 import { useSmartWallet } from "../hooks/useSmartWallet";
+import { analyzePlacePhotos } from "../hooks/Gemini_analysis";
 
 export interface Place {
   id: string;
@@ -115,6 +116,23 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       // Fetch detailed information if not already loaded
       if (!place.address && !place.hours) {
         loadPlaceDetails(place.id);
+      }
+
+      // Yeni mekan açıldığında Gemini fotoğraf analizi yap
+      if (isNewPlace && place) {
+        analyzePlacePhotos(place).then((tags) => {
+          if (tags.length > 0) {
+            setPlaceDetails((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                tags: [...(prev.tags || []), ...tags],
+              };
+            });
+          }
+        }).catch((error) => {
+          console.error("[DetailPanel] Gemini analizi hatası:", error);
+        });
       }
     }
   }, [place, isOpen, loadPlaceDetails]);
@@ -300,7 +318,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
       {photos.length > 0 && (
         <div id="placePhoto" className="place-photo">
-          <div className="photo-gallery">
+          <div className="photo-gallery" style={{ position: "relative" }}>
             {photos.length > 1 && (
               <button
                 className="photo-nav prev"
@@ -309,6 +327,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   prevPhoto(e);
                 }}
                 aria-label="Önceki foto"
+                style={{ display: "flex" }}
               >
                 &lt;
               </button>
@@ -330,6 +349,7 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
                   nextPhoto(e);
                 }}
                 aria-label="Sonraki foto"
+                style={{ display: "flex" }}
               >
                 &gt;
               </button>
