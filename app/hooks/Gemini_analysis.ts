@@ -151,33 +151,67 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
 // Tek bir mekan için fotoğraf analizi yap (Gemini ile, hata durumunda ChatGPT fallback)
 export async function analyzePlacePhotos(place: Place): Promise<string[]> {
   // Fotoğraf URL'lerini topla
-  const photoUrls: string[] = [
+  const allPhotoUrls = [
     ...(place.photos || []),
     ...(place.photo ? [place.photo] : []),
-  ].filter(Boolean).slice(0, 6); // Maksimum 6 fotoğraf
+  ].filter(Boolean);
+  
+  console.log("[Photo Analysis] Place fotoğraf bilgileri:", {
+    placeName: place.name,
+    placeId: place.id,
+    photosArrayLength: place.photos?.length || 0,
+    photoString: place.photo ? "var" : "yok",
+    totalPhotoUrls: allPhotoUrls.length,
+    photoUrls: allPhotoUrls,
+  });
+  
+  const photoUrls = allPhotoUrls.slice(0, 6); // Maksimum 6 fotoğraf
 
   if (photoUrls.length === 0) {
     console.log("[Photo Analysis] Fotoğraf yok, analiz yapılamıyor:", place.name);
     return [];
   }
 
-  console.log("[Photo Analysis] Analiz başlatılıyor:", place.name, "Fotoğraf sayısı:", photoUrls.length);
+  console.log("[Photo Analysis] Analiz başlatılıyor:", {
+    placeName: place.name,
+    totalPhotos: allPhotoUrls.length,
+    photosToAnalyze: photoUrls.length,
+    photoUrls: photoUrls,
+  });
 
   // Fotoğrafları base64 data URL'e çevir (bir kez yap, her iki API için kullan)
   const photoDataUrls: string[] = [];
-  for (const url of photoUrls) {
+  console.log("[Photo Analysis] Fotoğrafları base64'e çeviriliyor:", {
+    placeName: place.name,
+    photoUrlsCount: photoUrls.length,
+  });
+  
+  for (let i = 0; i < photoUrls.length; i++) {
+    const url = photoUrls[i];
+    console.log(`[Photo Analysis] Fotoğraf ${i + 1}/${photoUrls.length} yükleniyor:`, url);
     const dataUrl = await fetchPhotoAsDataUrl(url);
     if (dataUrl) {
       // Base64 kısmını al (data:image/jpeg;base64, kısmını çıkar)
       const base64Data = dataUrl.split(",")[1];
       if (base64Data) {
         photoDataUrls.push(base64Data);
+        console.log(`[Photo Analysis] Fotoğraf ${i + 1} başarıyla yüklendi, base64 uzunluğu:`, base64Data.length);
+      } else {
+        console.warn(`[Photo Analysis] Fotoğraf ${i + 1} base64 parse edilemedi`);
       }
+    } else {
+      console.warn(`[Photo Analysis] Fotoğraf ${i + 1} yüklenemedi:`, url);
     }
   }
 
+  console.log("[Photo Analysis] Base64 dönüşümü tamamlandı:", {
+    placeName: place.name,
+    requestedPhotos: photoUrls.length,
+    loadedPhotos: photoDataUrls.length,
+  });
+
   if (photoDataUrls.length === 0) {
-    console.warn("[Photo Analysis] Fotoğraf yüklenemedi:", place.name);
+    console.warn("[Photo Analysis] Hiç fotoğraf yüklenemedi:", place.name);
     return [];
   }
 

@@ -64,12 +64,29 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       const data = await googlePlaceDetails(placeId);
       const result = data?.result || data;
       if (result) {
-        const photos = (result.photos || [])
+        const rawPhotos = result.photos || [];
+        console.log("[DetailPanel] Google Places API'den gelen fotoğraflar:", {
+          placeId,
+          rawPhotosCount: rawPhotos.length,
+          rawPhotos: rawPhotos.map((p: any) => ({
+            ref: p?.photo_reference || p?.name,
+            name: p?.name,
+          })),
+        });
+        
+        const photos = rawPhotos
           .map((p: any) => {
             const ref = p?.photo_reference || p?.name;
             return ref ? googlePhoto(ref, "800") : "";
           })
           .filter(Boolean);
+        
+        console.log("[DetailPanel] İşlenmiş fotoğraf URL'leri:", {
+          placeId,
+          processedPhotosCount: photos.length,
+          photos: photos,
+        });
+        
         setPlaceDetails((prev) => ({
           ...prev!,
           address: result.formatted_address || prev?.address,
@@ -183,8 +200,16 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
       : placeDetails.photo
       ? [placeDetails.photo]
       : [];
-    return list.filter(Boolean);
-  }, [placeDetails?.photos, placeDetails?.photo]);
+    const filtered = list.filter(Boolean);
+    console.log("[DetailPanel] Photos memoized:", {
+      placeName: placeDetails.name,
+      photosArrayLength: placeDetails.photos?.length || 0,
+      photoString: placeDetails.photo ? "var" : "yok",
+      finalPhotosCount: filtered.length,
+      photos: filtered,
+    });
+    return filtered;
+  }, [placeDetails?.photos, placeDetails?.photo, placeDetails?.name]);
 
   // Photos değiştiğinde index'i sıfırla
   useEffect(() => {
@@ -292,16 +317,42 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
 
       {photos.length > 0 && (
         <div id="placePhoto" className="place-photo">
-          <div className="photo-gallery">
+          <div className="photo-gallery" style={{ position: "relative" }}>
             {photos.length > 1 && (
-              <button
-                className="photo-nav prev"
-                onClick={handlePrevPhoto}
-                aria-label="Önceki foto"
-                type="button"
-              >
-                &lt;
-              </button>
+              <>
+                <button
+                  className="photo-nav prev"
+                  onClick={handlePrevPhoto}
+                  aria-label="Önceki foto"
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 10,
+                    display: "flex",
+                  }}
+                >
+                  &lt;
+                </button>
+                <button
+                  className="photo-nav next"
+                  onClick={handleNextPhoto}
+                  aria-label="Sonraki foto"
+                  type="button"
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 10,
+                    display: "flex",
+                  }}
+                >
+                  &gt;
+                </button>
+              </>
             )}
             <img
               className="photo-main"
@@ -312,17 +363,17 @@ export default function DetailPanel({ isOpen, place, onClose }: DetailPanelProps
               onClick={openFullscreen}
               style={{ cursor: "pointer" }}
             />
-            {photos.length > 1 && (
-              <button
-                className="photo-nav next"
-                onClick={handleNextPhoto}
-                aria-label="Sonraki foto"
-                type="button"
-              >
-                &gt;
-              </button>
-            )}
           </div>
+          {photos.length > 1 && (
+            <div style={{ 
+              marginTop: "8px", 
+              textAlign: "center", 
+              fontSize: "12px", 
+              color: "var(--muted)" 
+            }}>
+              Fotoğraf {currentPhotoIndex + 1} / {photos.length}
+            </div>
+          )}
         </div>
       )}
 

@@ -265,7 +265,28 @@ export async function GET(request: NextRequest) {
 
       const data = await response.json();
       
+      // Google Places API'den gelen fotoğraf sayısını logla
+      const rawPhotosCount = data.photos?.length || 0;
+      console.log("[Google Details] API Response:", {
+        placeId: normalizedId,
+        rawPhotosCount,
+        photos: data.photos?.map((p: any) => p.name) || [],
+      });
+      
       // Yeni API formatını eski formata çevir (backward compatibility)
+      const photosArray = (data.photos || []).map((photo: any) => ({
+        photo_reference: photo.name, // Yeni API'de name kullanılıyor
+        name: photo.name,
+        width: photo.widthPx,
+        height: photo.heightPx,
+      }));
+      
+      console.log("[Google Details] Processed photos:", {
+        placeId: normalizedId,
+        processedPhotosCount: photosArray.length,
+        photoReferences: photosArray.map((p: any) => p.photo_reference),
+      });
+      
       const result = {
         result: {
           place_id: data.id,
@@ -276,12 +297,7 @@ export async function GET(request: NextRequest) {
           opening_hours: data.regularOpeningHours ? {
             weekday_text: data.regularOpeningHours.weekdayDescriptions || [],
           } : null,
-          photos: (data.photos || []).map((photo: any) => ({
-            photo_reference: photo.name, // Yeni API'de name kullanılıyor
-            name: photo.name,
-            width: photo.widthPx,
-            height: photo.heightPx,
-          })),
+          photos: photosArray,
           geometry: {
             location: {
               lat: data.location?.latitude || 0,
