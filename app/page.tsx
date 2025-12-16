@@ -16,6 +16,7 @@ import ResultsPanel from "./components/ResultsPanel";
 import DetailPanel from "./components/DetailPanel";
 import FilterPanel, { FilterState } from "./components/FilterPanel";
 import ProfilePanel from "./components/ProfilePanel";
+import WalletConnectionScreen from "./components/WalletConnectionScreen";
 import { sdk } from '@farcaster/miniapp-sdk';
 
 
@@ -236,16 +237,7 @@ export default function Home() {
   // OnchainKitProvider zaten wallet bağlantısını yönetiyor
   // Base Mini App içinde otomatik olarak Base Account bağlanır
   if (!isConnected) {
-    return (
-      <main className="relative w-full h-screen overflow-hidden">
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center">
-            <h2 className="text-xl font-bold mb-4">Cüzdan Bağlantısı</h2>
-            <p className="text-muted">Base Account bağlanıyor...</p>
-          </div>
-        </div>
-      </main>
-    );
+    return <WalletConnectionScreen />;
   }
 
   return (

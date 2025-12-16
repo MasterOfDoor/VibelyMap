@@ -2,3 +2,216 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Wallet Connection Screen Styles */
+.wallet-connection-screen {
+  @apply relative w-full h-screen overflow-hidden;
+  @apply flex items-center justify-center;
+  @apply bg-gradient-to-br from-[#d4a657] via-[#e2c999] to-[#f6e8c9];
+  min-height: 100vh;
+}
+
+.connection-container {
+  @apply w-full max-w-md mx-auto p-6;
+  @apply bg-white rounded-2xl shadow-2xl;
+  @apply border border-gray-200;
+}
+
+.connection-header {
+  @apply text-center mb-6;
+}
+
+.connection-icon {
+  @apply text-6xl mb-4;
+  @apply inline-block;
+}
+
+.connection-icon.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.connection-icon.error {
+  @apply text-red-500;
+}
+
+.connection-title {
+  @apply text-2xl font-bold mb-2;
+  @apply text-gray-900;
+}
+
+.connection-subtitle {
+  @apply text-base text-gray-600;
+}
+
+.connection-subtitle.error-text {
+  @apply text-red-600 font-medium;
+}
+
+.connection-progress {
+  @apply mb-6;
+}
+
+.progress-bar {
+  @apply w-full h-2 bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-fill {
+  @apply h-full bg-[#d4a657] rounded-full;
+  animation: progress 2s ease-in-out infinite;
+}
+
+@keyframes progress {
+  0%, 100% {
+    width: 0%;
+  }
+  50% {
+    width: 70%;
+  }
+}
+
+.connection-instructions {
+  @apply space-y-3 mb-6;
+  @apply text-left bg-gray-50 rounded-lg p-4;
+}
+
+.instruction-text {
+  @apply text-sm text-gray-700;
+}
+
+.security-notice {
+  @apply mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg;
+}
+
+.security-text {
+  @apply text-sm text-blue-800;
+}
+
+.wallet-options {
+  @apply space-y-3 mb-6;
+}
+
+.wallet-option {
+  @apply w-full flex items-center gap-4 p-4;
+  @apply bg-white border-2 border-gray-200 rounded-xl;
+  @apply hover:border-[#d4a657] hover:shadow-md;
+  @apply transition-all duration-200;
+  @apply text-left cursor-pointer;
+}
+
+.wallet-option:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  @apply hover:border-gray-200 hover:shadow-none;
+}
+
+.wallet-option.pending {
+  @apply border-[#d4a657] bg-yellow-50;
+}
+
+.wallet-icon {
+  @apply text-3xl flex-shrink-0;
+}
+
+.wallet-info {
+  @apply flex-1;
+}
+
+.wallet-name {
+  @apply text-lg font-semibold mb-1;
+  @apply text-gray-900;
+}
+
+.wallet-description {
+  @apply text-sm text-gray-600;
+}
+
+.wallet-status {
+  @apply text-xs text-gray-500 italic;
+}
+
+.error-details {
+  @apply mb-6 p-4 bg-red-50 border border-red-200 rounded-lg;
+}
+
+.error-title {
+  @apply text-lg font-semibold mb-3;
+  @apply text-red-900;
+}
+
+.error-list {
+  @apply space-y-2 list-disc list-inside;
+  @apply text-sm text-red-800;
+}
+
+.connection-actions {
+  @apply flex gap-3;
+}
+
+.btn-primary {
+  @apply flex-1 px-6 py-3;
+  @apply bg-[#d4a657] text-white font-semibold;
+  @apply rounded-xl hover:bg-[#c49547];
+  @apply transition-colors duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-[#d4a657] focus:ring-offset-2;
+}
+
+.connection-help {
+  @apply mt-6 pt-6 border-t border-gray-200;
+}
+
+.help-details {
+  @apply text-sm;
+}
+
+.help-summary {
+  @apply cursor-pointer text-gray-700 hover:text-[#d4a657];
+  @apply font-medium;
+}
+
+.help-content {
+  @apply mt-3 space-y-2 text-gray-600;
+}
+
+.help-link {
+  @apply text-[#d4a657] hover:underline ml-1;
+}
+
+.security-tip {
+  @apply mt-3 pt-3 border-t border-gray-200;
+  @apply text-xs text-gray-600 italic;
+}
+
+/* Accessibility improvements */
+.wallet-connection-screen:focus-within {
+  @apply outline-none;
+}
+
+.wallet-option:focus {
+  @apply outline-none ring-2 ring-[#d4a657] ring-offset-2;
+}
+
+.btn-primary:focus {
+  @apply outline-none ring-2 ring-[#d4a657] ring-offset-2;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .connection-container {
+    @apply border-2 border-gray-900;
+  }
+  
+  .wallet-option {
+    @apply border-2 border-gray-900;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .connection-icon.animate-pulse,
+  .progress-fill {
+    animation: none;
+  }
+  
+  .wallet-option {
+    @apply transition-none;
+  }
+}
+
