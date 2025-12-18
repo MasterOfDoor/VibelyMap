@@ -88,8 +88,9 @@ export default function ResultsPanel({
                 </div>
               )}
             </div>
-          ))
-        )}
+          );
+        })
+      )}
       </div>
     </aside>
   );
