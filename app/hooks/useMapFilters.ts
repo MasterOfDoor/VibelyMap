@@ -30,6 +30,9 @@ const optionCategory: { [key: string]: string } = {
   Kafe: "Kategori",
   Restoran: "Kategori",
   Bar: "Kategori",
+  "Cocktail Lounge": "Kategori",
+  Meyhane: "Kategori",
+  "Shot Bar": "Kategori",
 };
 
 function findOptionCategory(label: string): string | null {
@@ -44,9 +47,17 @@ function findOptionCategory(label: string): string | null {
 
 const CATEGORY_KEYWORDS: { [key: string]: string[] } = {
   Kafe: ["cafe", "coffee", "kahve", "espresso", "coffeeshop", "coffee shop"],
-  Restoran: ["restaurant", "restoran", "diner", "bistro", "lokanta", "kebap", "kebab", "ocakbasi", "canteen"],
-  Bar: ["bar", "pub", "bistro bar", "cocktail", "wine"],
+  Restoran: ["restaurant", "restoran", "diner", "bistro", "lokanta", "kebap", "kebab", "ocakbasi", "canteen", "grill", "kokoreç", "kokorec", "ızgara", "izgara"],
+  Bar: ["bar", "pub", "bistro bar", "cocktail", "wine", "gece hayatı", "nightlife"],
+  "Cocktail Lounge": ["cocktail", "lounge", "mixology", "kokteyl"],
+  Meyhane: ["meyhane", "tavern", "rakı", "raki"],
+  "Shot Bar": ["shot bar", "shots", "shotlar"],
 };
+
+// Alkol servis edilen kategoriler
+const ALCOHOL_CATEGORIES = ["Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"];
+// Alkol kategorilerinde kesinlikle olmaması gereken yiyecek odaklı anahtar kelimeler
+const FOOD_EXCLUSION_KEYWORDS = ["kokoreç", "kokorec", "grill", "ızgara", "izgara", "pide", "lahmacun"];
 
 function matchesCategoryOption(place: Place, option: string): boolean {
   const lowOpt = (option || "").toLowerCase();
@@ -63,10 +74,22 @@ function matchesCategoryOption(place: Place, option: string): boolean {
     placeName,
   ].filter(Boolean);
 
+  // Eğer alkol kategorisi seçildiyse ve mekanda yemek odaklı anahtar kelimeler varsa eliyoruz
+  if (ALCOHOL_CATEGORIES.includes(option)) {
+    const hasFoodExclusion = haystack.some(val => 
+      FOOD_EXCLUSION_KEYWORDS.some(ex => val.toLowerCase().includes(ex))
+    );
+    if (hasFoodExclusion) {
+      console.log(`[Filter] Mekan alkol kategorisinden elendi (Yemek odağı tespit edildi): ${place.name}`);
+      return false;
+    }
+  }
+
   return haystack.some((val) => {
-    if (val === lowOpt) return true;
-    if (val.includes(lowOpt)) return true;
-    return keywords.some((k) => val.includes(k));
+    const lowVal = val.toLowerCase();
+    if (lowVal === lowOpt) return true;
+    if (lowVal.includes(lowOpt)) return true;
+    return keywords.some((k) => lowVal.includes(k));
   });
 }
 

@@ -217,6 +217,15 @@ export default function Home() {
           } else if (kategori === "Bar") {
             categoryQuery = "bar";
             categoryType = "bar";
+          } else if (kategori === "Cocktail Lounge") {
+            categoryQuery = "cocktail lounge";
+            categoryType = "bar";
+          } else if (kategori === "Meyhane") {
+            categoryQuery = "meyhane";
+            categoryType = "restaurant"; // Google'da meyhane genellikle restaurant veya bar olarak geçer
+          } else if (kategori === "Shot Bar") {
+            categoryQuery = "shot bar";
+            categoryType = "bar";
           } else {
             categoryQuery = kategori.toLowerCase();
             categoryType = kategori.toLowerCase();

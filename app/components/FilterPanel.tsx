@@ -22,7 +22,7 @@ export interface FilterState {
 const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
 
 const criterionOptions: { [key: string]: string[] } = {
-  Kategori: ["Kafe", "Restoran", "Bar"],
+  Kategori: ["Kafe", "Restoran", "Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"],
   Isiklandirma: ["Los", "Dogal", "Canli"],
   Priz: ["Priz Az", "Priz Orta", "Priz Var", "Masada priz"], // Kept for backward compatibility, but Priz is now a range
   Ambiyans: ["Retro", "Modern"],
