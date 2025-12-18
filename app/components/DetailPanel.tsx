@@ -40,9 +40,10 @@ interface DetailPanelProps {
   place: Place | null;
   onClose: () => void;
   onPlaceUpdate?: (placeId: string, updatedPlace: Place) => void;
+  isAnalyzing?: boolean;
 }
 
-export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: DetailPanelProps) {
+export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isAnalyzing }: DetailPanelProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   // Use ref to track current index to avoid stale closures
   const currentPhotoIndexRef = useRef(0);
@@ -165,41 +166,6 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
       // Fetch detailed information if not already loaded
       if (!place.address && !place.hours) {
         loadPlaceDetails(place.id);
-      }
-
-      // Yeni mekan açıldığında AI fotoğraf analizi yap (ChatGPT primary, Gemini fallback)
-      // Her zaman analiz yap (depodan kontrol edilecek)
-      if (isNewPlace && place) {
-        console.log("[DetailPanel] AI analizi başlatılıyor (ChatGPT):", place.name);
-        analyzePlacePhotos(place).then((tags) => {
-          console.log("[DetailPanel] AI analizi tamamlandı, etiketler:", tags);
-          if (tags.length > 0) {
-            setPlaceDetails((prev) => {
-              if (!prev) return prev;
-              const newTags = [...(prev.tags || []), ...tags];
-              console.log("[DetailPanel] Yeni etiketler eklendi:", {
-                prevTags: prev.tags,
-                newTags: tags,
-                allTags: newTags,
-              });
-              const updatedPlace = {
-                ...prev,
-                tags: newTags,
-              };
-              
-              // Parent component'e güncellenmiş place'i bildir
-              if (onPlaceUpdate) {
-                onPlaceUpdate(prev.id, updatedPlace);
-              }
-              
-              return updatedPlace;
-            });
-          } else {
-            console.warn("[DetailPanel] AI analizi boş etiket döndü");
-          }
-        }).catch((error) => {
-          console.error("[DetailPanel] AI analizi hatası:", error);
-        });
       }
     }
   }, [place, isOpen, loadPlaceDetails]);
@@ -482,6 +448,12 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate }: D
             </div>
           )}
           <div id="placeTags" className="tags-container">
+            {isAnalyzing && (
+              <div className="analysis-loader" style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px", color: "var(--primary)" }}>
+                <span className="animate-spin">⏳</span>
+                <span className="tiny" style={{ fontWeight: 600 }}>AI Analizi yapılıyor...</span>
+              </div>
+            )}
             {placeDetails.tags && placeDetails.tags.length > 0 && (
               <div className="tags-section">
                 <div className="tags-header">

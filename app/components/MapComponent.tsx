@@ -18,6 +18,7 @@ interface MapComponentProps {
   onPlaceClick: (place: Place) => void;
   onLocationClick?: () => void;
   shouldFitBounds?: boolean; // Arama sonrası haritayı fit etmek için
+  isPlaceAnalyzing?: (placeId: string) => boolean;
 }
 
 function MapComponent({
@@ -26,6 +27,7 @@ function MapComponent({
   onPlaceClick,
   onLocationClick,
   shouldFitBounds = false,
+  isPlaceAnalyzing,
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -100,16 +102,21 @@ function MapComponent({
     places.forEach((place) => {
       if (!place.coords || place.coords.length !== 2) return;
 
+      const analyzing = isPlaceAnalyzing?.(place.id);
+
       // Create marker with explicit icon
       const marker = L.marker([place.coords[0], place.coords[1]], {
-        icon: L.icon({
-          iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-          iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        icon: L.divIcon({
+          className: "custom-marker",
+          html: `
+            <div class="marker-container ${analyzing ? 'analyzing' : ''}">
+              <img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png" class="marker-img" />
+              ${analyzing ? '<div class="marker-pulse"></div>' : ''}
+            </div>
+          `,
           iconSize: [25, 41],
           iconAnchor: [12, 41],
           popupAnchor: [1, -34],
-          shadowSize: [41, 41],
         }),
       }).addTo(mapInstanceRef.current!);
 

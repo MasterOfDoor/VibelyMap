@@ -347,3 +347,63 @@
   animation-name: zoomIn;
 }
 
+/* AI Analysis Marker Styles */
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+.marker-container {
+  position: relative;
+  width: 25px;
+  height: 41px;
+}
+
+.marker-img {
+  width: 25px;
+  height: 41px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.marker-container.analyzing .marker-img {
+  animation: marker-bounce 1s ease-in-out infinite;
+}
+
+.marker-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: rgba(212, 166, 87, 0.4);
+  border-radius: 50%;
+  animation: marker-pulse 1.5s ease-out infinite;
+  z-index: -1;
+}
+
+@keyframes marker-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes marker-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.result-item.analyzing {
+  border-left: 3px solid var(--primary);
+  background: rgba(212, 166, 87, 0.05);
+}
+

@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-  : null;
-
-const PROFILE_KEY_PREFIX = "user:profile:";
-const USERNAME_KEY_PREFIX = "username:to:address:";
+import { supabase } from "@/app/utils/supabase";
 
 // CORS headers
 function setCorsHeaders(response: NextResponse) {
@@ -34,42 +24,32 @@ export async function GET(request: NextRequest) {
       return setCorsHeaders(NextResponse.json({ results: [] }));
     }
 
-    if (!redis) {
-      return setCorsHeaders(NextResponse.json({ error: "Database not configured" }, { status: 500 }));
-    }
+    const normalizedQuery = query.toLowerCase().trim();
 
     // 1. Eğer sorgu bir wallet adresi ise (0x...)
-    if (query.match(/^0x[a-fA-F0-9]{40}$/)) {
-      const profile = await redis.get(`${PROFILE_KEY_PREFIX}${query.toLowerCase()}`);
-      return setCorsHeaders(NextResponse.json({ results: profile ? [profile] : [] }));
+    if (normalizedQuery.match(/^0x[a-fA-F0-9]{40}$/)) {
+      const { data, error } = await supabase
+        .from("username")
+        .select("*")
+        .eq("address", normalizedQuery);
+
+      if (error) throw error;
+      return setCorsHeaders(NextResponse.json({ results: data || [] }));
     }
 
-    // 2. Kullanıcı adı araması
-    // Redis'te tam eşleşme kontrolü (SCAN yerine index bazlı hızlı arama)
-    // Upstash'te pattern search için SCAN kullanılabilir ama büyük veride yavaşlar.
-    // Şimdilik tam eşleşme veya basit username index üzerinden gidiyoruz.
-    const normalizedQuery = query.toLowerCase().trim();
-    const address = await redis.get<string>(`${USERNAME_KEY_PREFIX}${normalizedQuery}`);
-    
-    if (address) {
-      const profile = await redis.get(`${PROFILE_KEY_PREFIX}${address}`);
-      return setCorsHeaders(NextResponse.json({ results: profile ? [profile] : [] }));
+    // 2. Kullanıcı adı araması (fuzzy search using ilike)
+    const { data, error } = await supabase
+      .from("username")
+      .select("*")
+      .ilike("username", `%${normalizedQuery}%`)
+      .limit(10);
+
+    if (error) {
+      console.error("[Profile Search API] Supabase error:", error);
+      throw error;
     }
 
-    // Kısmi eşleşme için (opsiyonel/gelişmiş):
-    // Upstash Redis'te keys veya scan kullanılabilir:
-    const keys = await redis.keys(`${USERNAME_KEY_PREFIX}${normalizedQuery}*`);
-    if (keys.length > 0) {
-      const addresses = await Promise.all(keys.map(k => redis.get<string>(k)));
-      const profiles = await Promise.all(
-        addresses
-          .filter((addr): addr is string => !!addr)
-          .map(addr => redis.get(`${PROFILE_KEY_PREFIX}${addr}`))
-      );
-      return setCorsHeaders(NextResponse.json({ results: profiles.filter(p => !!p) }));
-    }
-
-    return setCorsHeaders(NextResponse.json({ results: [] }));
+    return setCorsHeaders(NextResponse.json({ results: data || [] }));
   } catch (error: any) {
     console.error("[Profile Search API] error:", error);
     return setCorsHeaders(

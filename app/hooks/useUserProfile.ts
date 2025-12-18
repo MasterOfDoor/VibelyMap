@@ -72,3 +72,4 @@ export function useUserProfile(address: string | undefined) {
     refreshProfile: fetchProfile,
   };
 }
+

@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-  : null;
-
-const CACHE_KEY_PREFIX = "profile_avatar:";
-const CACHE_TTL = 86400 * 30; // 30 days
+import { supabase } from "@/app/utils/supabase";
 
 // CORS headers
 function setCorsHeaders(response: NextResponse) {
@@ -25,7 +15,7 @@ export async function OPTIONS() {
   return setCorsHeaders(response);
 }
 
-// GET: Avatar URL'ini oku
+// GET: Avatar URL'ini Supabase'den oku
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -33,24 +23,25 @@ export async function GET(request: NextRequest) {
 
     if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       return setCorsHeaders(
-        NextResponse.json(
-          { error: "Invalid wallet address" },
-          { status: 400 }
-        )
-      );
-    }
-
-    if (!redis) {
-      return setCorsHeaders(
-        NextResponse.json({ url: null })
+        NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
       );
     }
 
     const normalizedAddress = address.toLowerCase();
-    const cachedUrl = await redis.get<string>(`${CACHE_KEY_PREFIX}${normalizedAddress}`);
+    
+    const { data, error } = await supabase
+      .from("username")
+      .select("avatar_url")
+      .eq("address", normalizedAddress)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[Avatar API] Supabase error:", error);
+      throw error;
+    }
 
     return setCorsHeaders(
-      NextResponse.json({ url: cachedUrl || null })
+      NextResponse.json({ url: data?.avatar_url || null })
     );
   } catch (error: any) {
     console.error("[Avatar API] GET error:", error);
@@ -63,7 +54,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Avatar URL'ini kaydet
+// POST: Avatar URL'ini Supabase'e kaydet
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -71,33 +62,34 @@ export async function POST(request: NextRequest) {
 
     if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
       return setCorsHeaders(
-        NextResponse.json(
-          { error: "Invalid wallet address" },
-          { status: 400 }
-        )
+        NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
       );
     }
 
     if (!url || typeof url !== "string") {
       return setCorsHeaders(
-        NextResponse.json(
-          { error: "Invalid URL" },
-          { status: 400 }
-        )
-      );
-    }
-
-    if (!redis) {
-      return setCorsHeaders(
-        NextResponse.json({ success: true, cached: false })
+        NextResponse.json({ error: "Invalid URL" }, { status: 400 })
       );
     }
 
     const normalizedAddress = address.toLowerCase();
-    await redis.set(`${CACHE_KEY_PREFIX}${normalizedAddress}`, url, { ex: CACHE_TTL });
+
+    // avatar_url'i güncelle (eğer profil yoksa önce oluşturulması gerekir ama genelde username modal'dan sonra gelir)
+    // Upsert kullanarak eğer kayıt yoksa da oluşturabiliriz (ama username zorunlu olduğu için username kolonu hata verebilir)
+    // Bu yüzden update deniyoruz, eğer yoksa opsiyonel olarak insert edebiliriz.
+    
+    const { error: updateError } = await supabase
+      .from("username")
+      .update({ avatar_url: url, updated_at: new Date().toISOString() })
+      .eq("address", normalizedAddress);
+
+    if (updateError) {
+      console.error("[Avatar API] Supabase update error:", updateError);
+      throw updateError;
+    }
 
     return setCorsHeaders(
-      NextResponse.json({ success: true, cached: true })
+      NextResponse.json({ success: true, updated: true })
     );
   } catch (error: any) {
     console.error("[Avatar API] POST error:", error);
@@ -109,4 +101,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

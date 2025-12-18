@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
-
-const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  ? new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    })
-  : null;
-
-const PROFILE_KEY_PREFIX = "user:profile:";
-const USERNAME_KEY_PREFIX = "username:to:address:";
+import { supabase } from "@/app/utils/supabase";
 
 // CORS headers
 function setCorsHeaders(response: NextResponse) {
@@ -25,7 +15,7 @@ export async function OPTIONS() {
   return setCorsHeaders(response);
 }
 
-// GET: Profile bilgilerini getir
+// GET: Profile bilgilerini Supabase'den getir
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -37,14 +27,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!redis) {
-      return setCorsHeaders(NextResponse.json({ error: "Database not configured" }, { status: 500 }));
+    const normalizedAddress = address.toLowerCase();
+    
+    const { data, error } = await supabase
+      .from("username")
+      .select("*")
+      .eq("address", normalizedAddress)
+      .single();
+
+    if (error && error.code !== "PGRST116") { // PGRST116 is "no rows found"
+      console.error("[Profile API] Supabase error:", error);
+      throw error;
     }
 
-    const normalizedAddress = address.toLowerCase();
-    const profile = await redis.get(`${PROFILE_KEY_PREFIX}${normalizedAddress}`);
-
-    return setCorsHeaders(NextResponse.json({ profile: profile || null }));
+    return setCorsHeaders(NextResponse.json({ profile: data || null }));
   } catch (error: any) {
     console.error("[Profile API] GET error:", error);
     return setCorsHeaders(
@@ -79,43 +75,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!redis) {
-      return setCorsHeaders(NextResponse.json({ error: "Database not configured" }, { status: 500 }));
-    }
-
     const normalizedAddress = address.toLowerCase();
 
     // 1. Kullanıcı adının başkası tarafından alınıp alınmadığını kontrol et
-    const existingAddress = await redis.get<string>(`${USERNAME_KEY_PREFIX}${normalizedUsername}`);
-    
-    if (existingAddress && existingAddress !== normalizedAddress) {
+    const { data: existingUser, error: checkError } = await supabase
+      .from("username")
+      .select("address")
+      .eq("username", normalizedUsername)
+      .single();
+
+    if (checkError && checkError.code !== "PGRST116") {
+      throw checkError;
+    }
+
+    if (existingUser && existingUser.address !== normalizedAddress) {
       return setCorsHeaders(
         NextResponse.json({ error: "Username is already taken" }, { status: 409 })
       );
     }
 
-    // 2. Mevcut profili al (avatarUrl vb. kaybolmasın diye)
-    const existingProfile = await redis.get<any>(`${PROFILE_KEY_PREFIX}${normalizedAddress}`) || {};
-    
-    // 3. Eğer kullanıcı adı değişiyorsa eski kullanıcı adı kaydını sil
-    if (existingProfile.username && existingProfile.username.toLowerCase() !== normalizedUsername) {
-      await redis.del(`${USERNAME_KEY_PREFIX}${existingProfile.username.toLowerCase()}`);
+    // 2. Upsert (Oluştur veya Güncelle)
+    const { data: profile, error: upsertError } = await supabase
+      .from("username")
+      .upsert({
+        address: normalizedAddress,
+        username: normalizedUsername,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (upsertError) {
+      console.error("[Profile API] Upsert error:", upsertError);
+      throw upsertError;
     }
 
-    // 4. Yeni profili oluştur/güncelle
-    const newProfile = {
-      ...existingProfile,
-      address: normalizedAddress,
-      username: normalizedUsername, // Display version or just normalized
-      updatedAt: new Date().toISOString(),
-      createdAt: existingProfile.createdAt || new Date().toISOString(),
-    };
-
-    // 5. İşlemleri Redis'te atomik olarak yapmaya çalış (transaction olmasa da sırayla güvenli)
-    await redis.set(`${PROFILE_KEY_PREFIX}${normalizedAddress}`, newProfile);
-    await redis.set(`${USERNAME_KEY_PREFIX}${normalizedUsername}`, normalizedAddress);
-
-    return setCorsHeaders(NextResponse.json({ success: true, profile: newProfile }));
+    return setCorsHeaders(NextResponse.json({ success: true, profile }));
   } catch (error: any) {
     console.error("[Profile API] POST error:", error);
     return setCorsHeaders(

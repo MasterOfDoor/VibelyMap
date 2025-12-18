@@ -321,7 +321,7 @@ export function useMapPlaces() {
     setError(null);
   }, []);
 
-  const setPlacesDirectly = useCallback((newPlaces: Place[]) => {
+  const setPlacesDirectly = useCallback((newPlaces: Place[] | ((prev: Place[]) => Place[])) => {
     setPlaces(newPlaces);
   }, []);
 

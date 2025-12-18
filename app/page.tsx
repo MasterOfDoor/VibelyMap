@@ -7,6 +7,7 @@ import { useMapPlaces } from "./hooks/useMapPlaces";
 import { useMapSearch } from "./hooks/useMapSearch";
 import { useMapFilters } from "./hooks/useMapFilters";
 import { analyzePlacesPhotos } from "./hooks/ChatGPT_analysis";
+import { useAIAnalysis } from "./hooks/useAIAnalysis";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { Place } from "./components/DetailPanel";
 import { buildQueryFromFilters } from "./utils/filterHelpers";
@@ -91,18 +92,6 @@ export default function Home() {
     main: [],
     sub: {},
   });
-  // Filter places based on current filters
-  const filteredPlaces = useMemo(() => {
-    return filterPlaces(places || [], currentFilters);
-  }, [places, currentFilters, filterPlaces]);
-
-  const handlePlaceClick = useCallback((place: Place) => {
-    // Places listesinden güncel place'i bul (analiz sonuçları dahil)
-    const updatedPlace = places.find((p) => p.id === place.id) || place;
-    setSelectedPlace(updatedPlace);
-    setIsDetailOpen(true);
-    setIsResultsOpen(false);
-  }, [places]);
 
   const handlePlaceUpdate = useCallback((placeId: string, updatedPlace: Place) => {
     // Places listesindeki ilgili place'i güncelle
@@ -122,6 +111,25 @@ export default function Home() {
       return prevSelected;
     });
   }, [places, setPlaces]);
+
+  // AI Analizi Hook'u
+  const { triggerAnalysis, isPlaceAnalyzing } = useAIAnalysis(places, setPlaces, handlePlaceUpdate);
+
+  // Filter places based on current filters
+  const filteredPlaces = useMemo(() => {
+    return filterPlaces(places || [], currentFilters);
+  }, [places, currentFilters, filterPlaces]);
+
+  const handlePlaceClick = useCallback((place: Place) => {
+    // Places listesinden güncel place'i bul (analiz sonuçları dahil)
+    const updatedPlace = places.find((p) => p.id === place.id) || place;
+    setSelectedPlace(updatedPlace);
+    setIsDetailOpen(true);
+    setIsResultsOpen(false);
+
+    // Marker'a tıklandığında analizi başlat
+    triggerAnalysis(updatedPlace);
+  }, [places, triggerAnalysis]);
 
   const handleSearch = useCallback(
     async (query: string) => {
@@ -359,6 +367,7 @@ export default function Home() {
           }
         }}
         shouldFitBounds={isResultsOpen && filteredPlaces.length > 0}
+        isPlaceAnalyzing={isPlaceAnalyzing}
       />
 
       <SearchOverlay
@@ -380,6 +389,7 @@ export default function Home() {
         places={filteredPlaces}
         onClose={() => setIsResultsOpen(false)}
         onPlaceClick={handlePlaceClick}
+        isPlaceAnalyzing={isPlaceAnalyzing}
       />
 
       <DetailPanel
@@ -390,6 +400,7 @@ export default function Home() {
           setSelectedPlace(null);
         }}
         onPlaceUpdate={handlePlaceUpdate}
+        isAnalyzing={selectedPlace ? isPlaceAnalyzing(selectedPlace.id) : false}
       />
 
       <ProfilePanel

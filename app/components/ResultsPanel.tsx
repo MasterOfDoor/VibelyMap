@@ -7,6 +7,7 @@ interface ResultsPanelProps {
   places: Place[];
   onClose: () => void;
   onPlaceClick: (place: Place) => void;
+  isPlaceAnalyzing?: (placeId: string) => boolean;
 }
 
 export default function ResultsPanel({
@@ -14,6 +15,7 @@ export default function ResultsPanel({
   places,
   onClose,
   onPlaceClick,
+  isPlaceAnalyzing,
 }: ResultsPanelProps) {
   if (!isOpen) return null;
 
@@ -43,15 +45,20 @@ export default function ResultsPanel({
         {places.length === 0 ? (
           <p>Sonuç yok.</p>
         ) : (
-          places.map((place) => (
-            <div
-              key={place.id}
-              className="result-item"
-              onClick={() => onPlaceClick(place)}
-            >
-              <div className="result-item-content">
-                <h3>{place.name}</h3>
-                <p className="result-type">{place.type}</p>
+          places.map((place) => {
+            const analyzing = isPlaceAnalyzing?.(place.id);
+            return (
+              <div
+                key={place.id}
+                className={`result-item ${analyzing ? 'analyzing' : ''}`}
+                onClick={() => onPlaceClick(place)}
+              >
+                <div className="result-item-content">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <h3>{place.name}</h3>
+                    {analyzing && <span className="animate-spin" style={{ fontSize: "12px" }}>⏳</span>}
+                  </div>
+                  <p className="result-type">{place.type}</p>
                 {place.address && (
                   <p className="result-address muted-text tiny">
                     {place.address}

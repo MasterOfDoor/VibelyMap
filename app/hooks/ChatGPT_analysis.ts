@@ -138,7 +138,7 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
     } else if (prizValue === 3) {
       tags.push("Priz Var");
     } else if (prizValue === 4) {
-      tags.push("Masada priz");
+    tags.push("Masada priz");
     }
   }
 
