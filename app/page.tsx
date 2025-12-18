@@ -17,6 +17,7 @@ import DetailPanel from "./components/DetailPanel";
 import FilterPanel, { FilterState } from "./components/FilterPanel";
 import ProfilePanel from "./components/ProfilePanel";
 import WalletConnectionScreen from "./components/WalletConnectionScreen";
+import UsernameSetupModal from "./components/UsernameSetupModal";
 
 // Leaflet haritasını dinamik olarak yükle (SSR sorunlarını önlemek için)
 const MapComponent = dynamic(() => import("./components/MapComponent"), {
@@ -395,6 +396,8 @@ export default function Home() {
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
       />
+
+      <UsernameSetupModal />
     </main>
   );
 }

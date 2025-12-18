@@ -195,3 +195,4 @@ export function useProfileAvatar(address: string | undefined) {
     generateFallback: address ? generateAvatarFromAddress(address) : null,
   };
 }
+

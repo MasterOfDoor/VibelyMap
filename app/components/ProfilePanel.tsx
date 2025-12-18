@@ -3,6 +3,7 @@
 import { useAccount } from "wagmi";
 import { useEffect, useRef, useState } from "react";
 import { useProfileAvatar } from "../hooks/useProfileAvatar";
+import { useUserProfile } from "../hooks/useUserProfile";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -18,7 +19,38 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const avatarUploadBtnRef = useRef<HTMLButtonElement>(null);
   
   // Cloudinary avatar hook
-  const { avatarUrl, isLoading, uploadAvatar } = useProfileAvatar(address);
+  const { avatarUrl, isLoading: isAvatarLoading, uploadAvatar } = useProfileAvatar(address);
+  
+  // User profile hook (username)
+  const { profile, isLoading: isProfileLoading } = useUserProfile(address);
+
+  const isLoading = isAvatarLoading || isProfileLoading;
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Arama fonksiyonu
+  const handleSearch = async (query: string) => {
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/profile/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      setSearchResults(data.results || []);
+    } catch (err) {
+      console.error("Arama hatası:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Arkadaş ekleme (şimdilik sadece UI/Log)
+  const handleAddFriend = async (friendAddress: string) => {
+    console.log("Adding friend:", friendAddress);
+    alert(`Gurme eklendi (yakında): ${friendAddress}`);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
   // Client-side hydration için
   useEffect(() => {
@@ -115,7 +147,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               backgroundPosition: avatarUrl ? "center" : undefined,
             }}
           >
-            {!avatarUrl && (isMounted && isConnected && address
+            {!avatarUrl && (isMounted && isConnected && profile?.username
+              ? profile.username.slice(0, 2).toUpperCase()
+              : isMounted && isConnected && address
               ? address.slice(2, 4).toUpperCase()
               : "P")}
             {isLoading && !avatarUrl && (
@@ -155,12 +189,16 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             <div>
               <p className="eyebrow">Hesabım</p>
               <h2 id="profileUsername">
-                {isMounted && isConnected && address
+                {isMounted && isConnected && profile?.username
+                  ? `@${profile.username}`
+                  : isMounted && isConnected && address
                   ? `${address.slice(0, 6)}...${address.slice(-4)}`
                   : "Giriş yap"}
               </h2>
               <p id="profileEmail" className="muted-text tiny">
-                {isMounted && isConnected ? "@wallet" : "@kullanici"}
+                {isMounted && isConnected && address
+                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                  : "@kullanici"}
               </p>
             </div>
             <div className="hero-actions">
@@ -225,22 +263,57 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           <div>
             <h3>Gurme ekle</h3>
             <p className="muted-text tiny friends-subtext">
-              Kullanıcı adı veya e-posta ile ekle.
+              Kullanıcı adı veya cüzdan adresi ile ekle.
             </p>
           </div>
         </div>
-        <form id="addFriendForm" className="friend-form">
-          <input
-            type="text"
-            id="friendIdentifier"
-            placeholder="Kullanıcı veya mail ara"
-            required
-          />
-          <div id="friendSuggestions" className="connection-suggestions hidden"></div>
-          <button type="submit" className="pill secondary full">
-            Gurme ekle
-          </button>
-        </form>
+        <div className="friend-form">
+          <div className="relative">
+            <input
+              type="text"
+              id="friendIdentifier"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                // Arama tetikleyici (debounced olmalı ama şimdilik her değişimde)
+                if (e.target.value.length >= 2) {
+                  handleSearch(e.target.value);
+                } else {
+                  setSearchResults([]);
+                }
+              }}
+              placeholder="Kullanıcı adı veya 0x..."
+              className="w-full"
+            />
+            {isSearching && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-xs">⏳</span>
+            )}
+          </div>
+          
+          {searchResults.length > 0 && (
+            <div id="friendSuggestions" className="connection-suggestions visible">
+              {searchResults.map((result: any) => (
+                <div key={result.address} className="suggestion-item">
+                  <div className="suggestion-info">
+                    <span className="suggestion-name">@{result.username}</span>
+                    <span className="suggestion-address">{result.address.slice(0, 6)}...{result.address.slice(-4)}</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="pill secondary tiny"
+                    onClick={() => handleAddFriend(result.address)}
+                  >
+                    Ekle
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
+            <p className="muted-text tiny mt-2 ml-1">Kullanıcı bulunamadı.</p>
+          )}
+        </div>
       </div>
 
       <div id="connectionsSection" className="connections hidden">
