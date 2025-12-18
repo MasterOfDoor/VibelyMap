@@ -19,6 +19,7 @@ interface MapComponentProps {
   onLocationClick?: () => void;
   shouldFitBounds?: boolean; // Arama sonrası haritayı fit etmek için
   isPlaceAnalyzing?: (placeId: string) => boolean;
+  isBatchAnalyzing?: boolean;
 }
 
 function MapComponent({
@@ -28,6 +29,7 @@ function MapComponent({
   onLocationClick,
   shouldFitBounds = false,
   isPlaceAnalyzing,
+  isBatchAnalyzing = false,
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -97,7 +99,7 @@ function MapComponent({
     markersRef.current = [];
 
     // Add markers for each place
-    if (!places || !Array.isArray(places)) return;
+    if (!places || !Array.isArray(places) || isBatchAnalyzing) return;
     
     places.forEach((place) => {
       if (!place.coords || place.coords.length !== 2) return;
@@ -254,6 +256,21 @@ function MapComponent({
   return (
     <div className="fixed inset-0 w-full h-full" style={{ zIndex: 1 }}>
       <div ref={mapRef} className="w-full h-full" style={{ width: "100%", height: "100%" }} />
+      
+      {isBatchAnalyzing && (
+        <div className="absolute inset-0 flex items-center justify-center z-[1000] bg-black/20 backdrop-blur-sm">
+          <div className="bg-white px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-300">
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+            </div>
+            <span className="text-lg font-semibold text-gray-800 tracking-wide">
+              🤖 AI analizi sürüyor
+            </span>
+            <p className="text-sm text-gray-500">Mekanlar analiz ediliyor...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

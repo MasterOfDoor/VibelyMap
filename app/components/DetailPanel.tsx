@@ -520,9 +520,25 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
         </div>
         <button
           id="closeDetail"
-          className="icon-btn hide-close"
+          className="icon-btn"
           onClick={onClose}
           aria-label="Detayı kapat"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.05)",
+            border: "1px solid rgba(0,0,0,0.1)",
+            transition: "all 0.2s ease"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.1)";
+            e.currentTarget.style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.05)";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
         >
           &times;
         </button>

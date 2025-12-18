@@ -87,6 +87,7 @@ export default function Home() {
   const [isResultsOpen, setIsResultsOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isBatchAnalyzing, setIsBatchAnalyzing] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [currentFilters, setCurrentFilters] = useState<FilterState>({
     main: [],
@@ -270,6 +271,7 @@ export default function Home() {
             console.log("[handleApplyFilters] Place ID'leri alındı:", results.map(r => r.id));
             console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT & Gemini %50/%50)...", results.length, "mekan için");
             console.log("[handleApplyFilters] Önce cache kontrolü yapılacak, sonra sadece gerekli olanlar için analiz yapılacak");
+            setIsBatchAnalyzing(true);
             try {
               const analysisResults = await analyzePlacesPhotos(results);
               console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
@@ -305,6 +307,8 @@ export default function Home() {
               setIsResultsOpen(true);
               // Kullanıcıya bilgi ver (opsiyonel)
               console.warn("[handleApplyFilters] AI analizi başarısız oldu, ancak mekanlar gösteriliyor");
+            } finally {
+              setIsBatchAnalyzing(false);
             }
           }
         }
@@ -368,6 +372,7 @@ export default function Home() {
         }}
         shouldFitBounds={isResultsOpen && filteredPlaces.length > 0}
         isPlaceAnalyzing={isPlaceAnalyzing}
+        isBatchAnalyzing={isBatchAnalyzing}
       />
 
       <SearchOverlay
