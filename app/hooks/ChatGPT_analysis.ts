@@ -561,7 +561,7 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     uncachedCount: uncachedPlaces.length,
   });
 
-  // 3. Sadece cache'de olmayan place'ler için analiz yap (ChatGPT ve Gemini arasında paylaştır)
+    // 3. Sadece cache'de olmayan place'ler için analiz yap (ChatGPT ve Gemini arasında paylaştır)
   if (uncachedPlaces.length > 0) {
     log.analysis("Splitting uncached places between ChatGPT and Gemini", {
       action: "batch_analysis_split_start",
@@ -593,7 +593,10 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
         await Promise.all(batch.map(async (place) => {
           try {
             const tags = await analyzePlacePhotosWithChatGPT(place);
-            if (tags.length > 0) resultMap.set(place.id, tags);
+            if (tags.length > 0) {
+              resultMap.set(place.id, tags);
+              // analyzePlacePhotosWithChatGPT zaten saveAITags çağırıyor
+            }
           } catch (error: any) {
             log.analysisError("ChatGPT batch analysis failed", { placeId: place.id }, error);
           }
@@ -607,7 +610,10 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
         await Promise.all(batch.map(async (place) => {
           try {
             const tags = await analyzePlacePhotosWithGemini(place);
-            if (tags.length > 0) resultMap.set(place.id, tags);
+            if (tags.length > 0) {
+              resultMap.set(place.id, tags);
+              // analyzePlacePhotosWithGemini zaten saveAITags çağırıyor
+            }
           } catch (error: any) {
             log.analysisError("Gemini batch analysis failed", { placeId: place.id }, error);
           }
