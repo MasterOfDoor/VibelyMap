@@ -6,49 +6,37 @@ import { log } from "@/app/utils/logger";
 let redis: Redis | null = null;
 
 function getRedisClient(): Redis | null {
-  if (redis) return redis;
-  
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  
-  if (!url || !token) {
-    log.storage("Upstash Redis credentials not found, caching disabled", {
-      action: "redis_init_skip",
-      hasUrl: !!url,
-      hasToken: !!token,
-    });
-    return null;
-  }
-  
   try {
+    if (redis) return redis;
+    
+    const url = process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    
+    if (!url || !token) {
+      console.warn("[Redis] Credentials missing in environment variables");
+      return null;
+    }
+    
     redis = new Redis({
       url: url,
       token: token,
     });
-    log.storage("Upstash Redis client initialized", {
-      action: "redis_init_success",
-    });
     return redis;
-  } catch (error: any) {
-    log.storageError("Failed to initialize Redis client", {
-      action: "redis_init_error",
-    }, error);
+  } catch (error) {
+    console.error("[Redis Init Error]", error);
     return null;
   }
 }
 
-// CORS headers
-function setCorsHeaders(response: NextResponse) {
-  const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || "*";
-  response.headers.set("Access-Control-Allow-Origin", allowedOrigin);
-    response.headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-    return response;
-}
-
 export async function OPTIONS() {
-  const response = new NextResponse(null, { status: 204 });
-  return setCorsHeaders(response);
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 }
 
 // DELETE: Belirli bir mekanın AI etiketlerini sil
@@ -58,41 +46,34 @@ export async function DELETE(
 ) {
   const { placeId } = params;
 
-  try {
-    if (!placeId) {
-      return setCorsHeaders(
-        NextResponse.json({ error: "Place ID is required" }, { status: 400 })
-      );
-    }
+  if (!placeId) {
+    return new NextResponse(JSON.stringify({ error: "Place ID is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
+  }
 
+  try {
     const redisClient = getRedisClient();
     if (!redisClient) {
-      return setCorsHeaders(
-        NextResponse.json({ error: "Redis not available" }, { status: 503 })
-      );
+      return new NextResponse(JSON.stringify({ error: "Redis not available" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
     }
-
-    log.storage("Deleting tags from cache", {
-      action: "cache_delete",
-      placeId,
-    });
 
     await redisClient.del(`ai-tags:${placeId}`);
 
-    return setCorsHeaders(
-      NextResponse.json({ success: true, message: `Tags for ${placeId} deleted` })
-    );
+    return new NextResponse(JSON.stringify({ success: true, message: `Tags for ${placeId} deleted` }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   } catch (error: any) {
-    log.storageError("Failed to delete tags", {
-      action: "cache_delete_error",
-      placeId,
-    }, error);
-    return setCorsHeaders(
-      NextResponse.json(
-        { error: "Failed to delete tags", detail: error.message },
-        { status: 500 }
-      )
-    );
+    console.error(`[AI-TAGS DELETE ERROR] placeId: ${placeId}`, error);
+    return new NextResponse(JSON.stringify({ error: "Failed to delete tags", detail: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   }
 }
 
@@ -103,67 +84,34 @@ export async function GET(
 ) {
   const { placeId } = params;
   
-  try {
-    if (!placeId) {
-      return setCorsHeaders(
-        NextResponse.json({ error: "Place ID is required" }, { status: 400 })
-      );
-    }
+  if (!placeId) {
+    return new NextResponse(JSON.stringify({ error: "Place ID is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
+  }
 
-    // Upstash Redis'ten etiketleri oku
+  try {
     const redisClient = getRedisClient();
     if (!redisClient) {
-      log.storage("Redis not available, returning null", {
-        action: "cache_read_skip",
-        placeId,
+      return new NextResponse(JSON.stringify({ tags: null, cached: false, warning: "Redis not available" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
-      return setCorsHeaders(
-        NextResponse.json({ tags: null, cached: false })
-      );
     }
     
-    log.storage("Reading tags from cache", {
-      action: "cache_read",
-      placeId,
-    });
-    
-    const startTime = Date.now();
     const tags = await redisClient.get<string[]>(`ai-tags:${placeId}`);
-    const duration = Date.now() - startTime;
     
-    if (tags && Array.isArray(tags) && tags.length > 0) {
-      log.storage("Tags found in cache", {
-        action: "cache_hit",
-        placeId,
-        tagsCount: tags.length,
-        duration: `${duration}ms`,
-      });
-      return setCorsHeaders(
-        NextResponse.json({ tags, cached: true })
-      );
-    }
-
-    log.storage("Tags not found in cache", {
-      action: "cache_miss",
-      placeId,
-      duration: `${duration}ms`,
+    return new NextResponse(JSON.stringify({ tags: tags || null, cached: !!tags }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
-
-    // Etiket bulunamadı
-    return setCorsHeaders(
-      NextResponse.json({ tags: null, cached: false })
-    );
   } catch (error: any) {
-    log.storageError("Failed to fetch tags", {
-      action: "cache_read_error",
-      placeId,
-    }, error);
-    return setCorsHeaders(
-      NextResponse.json(
-        { error: "Failed to fetch tags", detail: error.message },
-        { status: 500 }
-      )
-    );
+    console.error(`[AI-TAGS GET ERROR] placeId: ${placeId}`, error);
+    return new NextResponse(JSON.stringify({ error: "Failed to fetch tags", detail: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   }
 }
 
@@ -173,71 +121,45 @@ export async function POST(
   { params }: { params: { placeId: string } }
 ) {
   const { placeId } = params;
-  let tags: string[] | undefined;
   
+  if (!placeId) {
+    return new NextResponse(JSON.stringify({ error: "Place ID is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
+  }
+
   try {
     const body = await request.json();
-    tags = body.tags;
-
-    if (!placeId) {
-      return setCorsHeaders(
-        NextResponse.json({ error: "Place ID is required" }, { status: 400 })
-      );
-    }
+    const tags = body.tags;
 
     if (!Array.isArray(tags)) {
-      return setCorsHeaders(
-        NextResponse.json({ error: "Tags must be an array" }, { status: 400 })
-      );
+      return new NextResponse(JSON.stringify({ error: "Tags must be an array" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+      });
     }
 
-    // Upstash Redis'e etiketleri kaydet (30 gün TTL)
     const redisClient = getRedisClient();
     if (!redisClient) {
-      log.storage("Redis not available, skipping cache write", {
-        action: "cache_write_skip",
-        placeId,
-        tagsCount: tags.length,
+      return new NextResponse(JSON.stringify({ success: true, warning: "Redis not available", cached: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
       });
-      // Redis yoksa bile başarılı dön (fallback)
-      return setCorsHeaders(
-        NextResponse.json({ success: true, placeId, tags, cached: false })
-      );
     }
     
-    log.storage("Saving tags to cache", {
-      action: "cache_write",
-      placeId,
-      tagsCount: tags.length,
-      ttl: "30 days",
-    });
-    
-    const startTime = Date.now();
     await redisClient.set(`ai-tags:${placeId}`, tags, { ex: 86400 * 30 });
-    const duration = Date.now() - startTime;
     
-    log.storage("Tags saved to cache successfully", {
-      action: "cache_write_success",
-      placeId,
-      tagsCount: tags.length,
-      duration: `${duration}ms`,
+    return new NextResponse(JSON.stringify({ success: true, placeId, tags }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
     });
-    
-    return setCorsHeaders(
-      NextResponse.json({ success: true, placeId, tags })
-    );
   } catch (error: any) {
-    log.storageError("Failed to save tags", {
-      action: "cache_write_error",
-      placeId,
-      tagsCount: tags?.length || 0,
-    }, error);
-    return setCorsHeaders(
-      NextResponse.json(
-        { error: "Failed to save tags", detail: error.message },
-        { status: 500 }
-      )
-    );
+    console.error(`[AI-TAGS POST ERROR] placeId: ${placeId}`, error);
+    return new NextResponse(JSON.stringify({ error: "Failed to save tags", detail: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    });
   }
 }
 

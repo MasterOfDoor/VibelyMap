@@ -534,8 +534,9 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     return resultMap;
   }
 
-  // 1. Önce toplu cache kontrolü yap
-  const placeIds = places.map(p => p.id);
+  // 1. Önce toplu cache kontrolü yap (Duplicate ID'leri temizle)
+  const uniquePlaces = Array.from(new Map(places.map(p => [p.id, p])).values());
+  const placeIds = uniquePlaces.map(p => p.id);
   const cachedTags = await getBatchCachedTags(placeIds);
   
   // Cache'den gelen tag'leri resultMap'e ekle
@@ -551,7 +552,7 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
   });
 
   // 2. Cache'de olmayan place'leri bul
-  const uncachedPlaces = places.filter(place => !cachedTags[place.id]);
+  const uncachedPlaces = uniquePlaces.filter(place => !cachedTags[place.id]);
   
   log.analysis("Cache check completed", {
     action: "batch_cache_check_complete",
@@ -567,7 +568,7 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
       uncachedCount: uncachedPlaces.length,
     });
 
-    // Yarısını ChatGPT, yarısını Gemini için ayır
+    // Yarısını ChatGPT, yarısını Gemini için ayır (İstenen %50/%50 dağılım)
     const half = Math.ceil(uncachedPlaces.length / 2);
     const chatGPTBatch = uncachedPlaces.slice(0, half);
     const geminiBatch = uncachedPlaces.slice(half);
@@ -583,31 +584,40 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     // Rate limiting için batch'ler halinde işle
     const parallelLimit = 3;
     
-    // ChatGPT İşlemleri
-    for (let i = 0; i < chatGPTBatch.length; i += parallelLimit) {
-      const batch = chatGPTBatch.slice(i, i + parallelLimit);
-      await Promise.all(batch.map(async (place) => {
-        try {
-          const tags = await analyzePlacePhotosWithChatGPT(place);
-          if (tags.length > 0) resultMap.set(place.id, tags);
-        } catch (error: any) {
-          log.analysisError("ChatGPT batch analysis failed", { placeId: place.id }, error);
-        }
-      }));
-    }
+    // ChatGPT ve Gemini işlemlerini AYNI ANDA başlat
+    console.log(`[Batch Analysis] ChatGPT (${chatGPTBatch.length}) ve Gemini (${geminiBatch.length}) analizleri eş zamanlı başlıyor...`);
+    
+    const chatGPTPromise = (async () => {
+      for (let i = 0; i < chatGPTBatch.length; i += parallelLimit) {
+        const batch = chatGPTBatch.slice(i, i + parallelLimit);
+        await Promise.all(batch.map(async (place) => {
+          try {
+            const tags = await analyzePlacePhotosWithChatGPT(place);
+            if (tags.length > 0) resultMap.set(place.id, tags);
+          } catch (error: any) {
+            log.analysisError("ChatGPT batch analysis failed", { placeId: place.id }, error);
+          }
+        }));
+      }
+    })();
 
-    // Gemini İşlemleri
-    for (let i = 0; i < geminiBatch.length; i += parallelLimit) {
-      const batch = geminiBatch.slice(i, i + parallelLimit);
-      await Promise.all(batch.map(async (place) => {
-        try {
-          const tags = await analyzePlacePhotosWithGemini(place);
-          if (tags.length > 0) resultMap.set(place.id, tags);
-        } catch (error: any) {
-          log.analysisError("Gemini batch analysis failed", { placeId: place.id }, error);
-        }
-      }));
-    }
+    const geminiPromise = (async () => {
+      for (let i = 0; i < geminiBatch.length; i += parallelLimit) {
+        const batch = geminiBatch.slice(i, i + parallelLimit);
+        await Promise.all(batch.map(async (place) => {
+          try {
+            const tags = await analyzePlacePhotosWithGemini(place);
+            if (tags.length > 0) resultMap.set(place.id, tags);
+          } catch (error: any) {
+            log.analysisError("Gemini batch analysis failed", { placeId: place.id }, error);
+          }
+        }));
+      }
+    })();
+
+    // Her iki modelin tüm analizlerinin bitmesini bekle
+    await Promise.all([chatGPTPromise, geminiPromise]);
+    console.log("[Batch Analysis] Tüm AI analizleri tamamlandı.");
   }
 
   log.analysis("Optimized batch analysis completed", {
