@@ -13,14 +13,14 @@ interface AnalysisState {
 
 export function useAIAnalysis(
   places: Place[],
-  setPlaces: (places: Place[]) => void,
+  setPlaces: (places: Place[] | ((prev: Place[]) => Place[])) => void,
   onPlaceUpdate?: (placeId: string, updatedPlace: Place) => void
 ) {
   // placeId -> AnalysisState
   const [analysisStatus, setAnalysisStatus] = useState<Record<string, AnalysisState>>({});
   
   // Track ongoing analysis promises to avoid duplicate requests
-  const ongoingAnalyses = useRef<Record<string, Promise<string[]>>>({});
+  const ongoingAnalyses = useRef<Record<string, Promise<string[]> | undefined>>({});
   
   // Queue of marker clicks to handle rapid succession
   const clickQueue = useRef<string[]>([]);
@@ -65,8 +65,8 @@ export function useAIAnalysis(
       if (newTags.length > 0) {
         // Update the specific place in the global list
         // We use a callback to get the most recent places state
-        setPlaces(currentPlaces => {
-          const updatedPlaces = currentPlaces.map(p => {
+        setPlaces((currentPlaces: Place[]) => {
+          const updatedPlaces = currentPlaces.map((p: Place) => {
             if (p.id === placeId) {
               // Avoid duplicates if tags already exist
               const existingTags = p.tags || [];
