@@ -234,7 +234,7 @@ export default function Home() {
           const categoryResults = await loadPlaces(categoryQuery, {
             lat: userLocation.lat,
             lng: userLocation.lng,
-            radius: 3000, // 3km
+            radius: filters.ranges?.Mesafe || 2000, // 2km default veya kullanıcı seçimi
             type: categoryType, // Yeni API için type parametresi
           });
 

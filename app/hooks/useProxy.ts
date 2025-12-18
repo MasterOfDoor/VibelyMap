@@ -19,7 +19,7 @@ export function useProxy() {
       endpoint: "textsearch",
       lat: params.lat,
       lng: params.lng,
-      radius: params.radius || "3000",
+      radius: params.radius || "2000",
     });
     if (params.q) searchParams.set("q", params.q);
     if (params.type) searchParams.set("type", params.type);

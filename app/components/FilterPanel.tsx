@@ -15,20 +15,21 @@ export interface FilterState {
     [key: string]: string[];
   };
   ranges?: {
-    [key: string]: number; // Isiklandirma: 1-5, Oturma (Koltuk): 0-3
+    [key: string]: number; // Isiklandirma: 1-5, Oturma (Koltuk): 0-3, Priz: 1-4, Radius: 500-10000
   };
 }
 
-const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
+const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara", "Mesafe"];
 
 const criterionOptions: { [key: string]: string[] } = {
   Kategori: ["Kafe", "Restoran", "Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"],
   Isiklandirma: ["Los", "Dogal", "Canli"],
-  Priz: ["Priz Az", "Priz Orta", "Priz Var", "Masada priz"], // Kept for backward compatibility, but Priz is now a range
+  Priz: ["Priz Az", "Priz Orta", "Priz Var", "Masada priz"],
   Ambiyans: ["Retro", "Modern"],
   Oturma: ["Koltuk var", "Koltuk yok"],
   Deniz: ["Deniz goruyor", "Deniz gormuyor"],
   Sigara: ["Sigara icilebilir", "Kapali alanda sigara icilebilir"],
+  Mesafe: ["500m", "1km", "2km", "3km", "5km", "10km"],
 };
 
 export default function FilterPanel({
@@ -46,7 +47,8 @@ export default function FilterPanel({
   const [rangeValues, setRangeValues] = useState<{ [key: string]: number }>({
     Isiklandirma: 3,
     Oturma: 0,
-    Priz: 0, // Default: 0 (no selection)
+    Priz: 0,
+    Mesafe: 2000, // Default: 2km
   });
 
   const toggleCriterion = (criterion: string) => {
@@ -95,6 +97,8 @@ export default function FilterPanel({
     if (rangeValues.Priz !== 0 && rangeValues.Priz !== undefined) {
       ranges.Priz = rangeValues.Priz;
     }
+    // Mesafe her zaman eklenmeli (default olsa bile arama için kritik)
+    ranges.Mesafe = rangeValues.Mesafe;
     
     const filtersWithRanges = {
       ...selectedFilters,
@@ -105,7 +109,7 @@ export default function FilterPanel({
 
   const handleReset = () => {
     setSelectedFilters({ main: [], sub: {}, ranges: {} });
-    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0 });
+    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0, Mesafe: 2000 });
     setExpandedCriterion(null);
     onResetFilters();
   };
@@ -131,17 +135,24 @@ export default function FilterPanel({
       </div>
       <form id="filterForm" className="filter-list">
         {Object.entries(criterionOptions).map(([criterion, options]) => {
-          // Işıklandırma, Oturma ve Priz için range input göster
-          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
+          // Işıklandırma, Oturma, Priz ve Mesafe için range input göster
+          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz" || criterion === "Mesafe") {
             const isIsiklandirma = criterion === "Isiklandirma";
             const isPriz = criterion === "Priz";
-            const min = isIsiklandirma ? 1 : (isPriz ? 1 : 0);
-            const max = isIsiklandirma ? 5 : (isPriz ? 4 : 3);
-            const currentValue = rangeValues[criterion] || (isIsiklandirma ? 3 : (isPriz ? 0 : 0));
+            const isMesafe = criterion === "Mesafe";
+            
+            const min = isIsiklandirma ? 1 : (isPriz ? 1 : (isMesafe ? 500 : 0));
+            const max = isIsiklandirma ? 5 : (isPriz ? 4 : (isMesafe ? 10000 : 3));
+            const step = isMesafe ? 500 : 1;
+            
+            const currentValue = rangeValues[criterion];
+            
             const labels = isIsiklandirma 
               ? ["Canlı", "", "Doğal", "", "Loş"]
               : isPriz
               ? ["", "Az", "Orta", "Var", "Masada Priz"]
+              : isMesafe
+              ? ["500m", "2km", "5km", "10km"]
               : ["Yok", "Az", "Orta", "Var"];
             
             return (
@@ -155,7 +166,7 @@ export default function FilterPanel({
                   className={`filter-main ${expandedCriterion === criterion ? "active" : ""}`}
                   onClick={() => toggleCriterion(criterion)}
                 >
-                  {criterion}
+                  {criterion === "Mesafe" ? "Arama Mesafesi" : criterion}
                   <span className="chevron">
                     {expandedCriterion === criterion ? "∧" : "∨"}
                   </span>
@@ -163,12 +174,14 @@ export default function FilterPanel({
                 <div className="sub-options">
                   <div style={{ padding: "16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                      <span style={{ minWidth: "80px", fontSize: "14px", fontWeight: "500" }}>Puan: {currentValue}</span>
+                      <span style={{ minWidth: "80px", fontSize: "14px", fontWeight: "500" }}>
+                        {isMesafe ? `${currentValue / 1000} km` : `Puan: ${currentValue}`}
+                      </span>
                       <input
                         type="range"
                         min={min}
                         max={max}
-                        step={1}
+                        step={step}
                         value={currentValue}
                         data-criterion={criterion}
                         onChange={(e) => {
@@ -188,11 +201,11 @@ export default function FilterPanel({
                           WebkitAppearance: "none",
                         }}
                       />
-                      <span style={{ fontSize: "24px", lineHeight: "1" }}>⭐</span>
+                      <span style={{ fontSize: "24px", lineHeight: "1" }}>{isMesafe ? "📍" : "⭐"}</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#666", marginTop: "4px" }}>
                       {labels.map((label, idx) => (
-                        <span key={idx} style={{ flex: idx === 0 || idx === labels.length - 1 ? "0 0 auto" : "1" }}>
+                        <span key={idx} style={{ flex: idx === 0 || idx === labels.length - 1 ? "0 0 auto" : "1", textAlign: idx === labels.length - 1 ? "right" : (idx === 0 ? "left" : "center") }}>
                           {label}
                         </span>
                       ))}
@@ -203,9 +216,9 @@ export default function FilterPanel({
             );
           }
           
-          // Priz için chip-option gösterme (range input kullanılıyor)
-          if (criterion === "Priz") {
-            return null; // Priz range input olarak yukarıda gösterildi
+          // Priz ve Mesafe için chip-option gösterme (range input kullanılıyor)
+          if (criterion === "Priz" || criterion === "Mesafe") {
+            return null;
           }
           
           // Diğer kriterler için normal chip-option'lar

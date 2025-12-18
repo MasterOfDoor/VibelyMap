@@ -189,7 +189,7 @@ function normalizeHereItem(item) {
     };
 }
 
-async function fetchAllDiscover(query, { lat, lng, radius = 3000, limit = 1000, type = "", pagetoken = "" } = {}) {
+async function fetchAllDiscover(query, { lat, lng, radius = 2000, limit = 1000, type = "", pagetoken = "" } = {}) {
     // Sayfalama ile tüm sonuçları al - optimize edilmiş (hızlı)
     let allItems = [];
     let nextPageToken = pagetoken;
@@ -275,7 +275,7 @@ async function loadPlaces(queryString, searchOptions = {}) {
             : await ensureUserLocation();
         console.log("Using search center:", searchCenter);
 
-        const searchRadius = searchOptions.radius || 3000; // 3km yarıçap
+        const searchRadius = searchOptions.radius || 2000; // 2km yarıçap
         const limit = searchOptions.limit || 1000; // Yüksek limit, sayfalama ile tüm sonuçları alacağız
 
         items = await fetchAllDiscover(queryString, {

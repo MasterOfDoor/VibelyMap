@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       const q = searchParams.get("q") || "";
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");
-      const radius = searchParams.get("radius") || "3000";
+      const radius = searchParams.get("radius") || "2000";
       const type = searchParams.get("type") || "";
       const nextPageToken = searchParams.get("pagetoken") || "";
 

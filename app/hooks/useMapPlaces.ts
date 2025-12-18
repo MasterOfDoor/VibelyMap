@@ -127,13 +127,13 @@ export function useMapPlaces() {
           ? { lat: options.lat, lng: options.lng }
           : ISTANBUL_CENTER;
 
-        const searchRadius = options.radius || 3000; // 3km yarıçap
+        const searchRadius = options.radius || 2000; // 2km yarıçap varsayılan
         const limit = options.limit || 1000; // Yüksek limit, sayfalama ile tüm sonuçları alacağız
 
         let allItems: any[] = [];
         let nextPageToken: string | undefined = undefined;
         let pageCount = 0;
-        const maxPages = 5; // Maksimum sayfa sayısını azalttık (hız için)
+        const maxPages = 10; // Daha fazla sonuç için sayfa sayısını artırdık (20 -> 10) - New API'de her sayfa 20 sonuç. 10 sayfa 200 sonuç demek.
 
         // Sayfalama ile tüm sonuçları al - optimize edilmiş
         do {

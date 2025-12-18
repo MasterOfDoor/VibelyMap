@@ -37,7 +37,7 @@ export function useMapSearch() {
         const searchOptions = options || {
           lat: 41.015137,
           lng: 28.97953,
-          radius: 30000,
+          radius: 2000, // 2km default search radius
         };
 
         const results = await loadPlaces(query, searchOptions);
