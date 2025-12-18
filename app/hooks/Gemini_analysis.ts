@@ -114,49 +114,49 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   if (typeof result.mekan_isiklandirma === "number") {
     const isikValue = result.mekan_isiklandirma;
     if (isikValue >= 1 && isikValue <= 5) {
-      tags.push(`Işıklandırma ${isikValue}`);
+      tags.push(`🤖 Işıklandırma ${isikValue}`);
     }
   }
 
   // Ambiyans
   if (result.ambiyans?.retro) {
-    tags.push("Retro");
+    tags.push("🤖 Retro");
   }
   if (result.ambiyans?.modern) {
-    tags.push("Modern");
+    tags.push("🤖 Modern");
   }
 
   // Priz
   if (result.masada_priz_var_mi) {
-    tags.push("Masada priz");
+    tags.push("🤖 Masada priz");
   }
 
   // Koltuk (0-3 arası değer)
   if (typeof result.koltuk_var_mi === "number") {
     const koltukValue = result.koltuk_var_mi;
     if (koltukValue === 0) {
-      tags.push("Koltuk yok");
+      tags.push("🤖 Koltuk yok");
     } else if (koltukValue === 1) {
-      tags.push("Koltuk az");
+      tags.push("🤖 Koltuk az");
     } else if (koltukValue === 2) {
-      tags.push("Koltuk orta");
+      tags.push("🤖 Koltuk orta");
     } else if (koltukValue === 3) {
-      tags.push("Koltuk var");
+      tags.push("🤖 Koltuk var");
     }
   }
 
   // Sigara
   if (result.sigara_iciliyor) {
     if (result.sigara_alani?.includes("acik")) {
-      tags.push("Sigara icilebilir");
+      tags.push("🤖 Sigara icilebilir");
     } else if (result.sigara_alani?.includes("kapali")) {
-      tags.push("Kapali alanda sigara icilebilir");
+      tags.push("🤖 Kapali alanda sigara icilebilir");
     }
   }
 
   // Deniz
   if (result.deniz_manzarasi) {
-    tags.push("Deniz goruyor");
+    tags.push("🤖 Deniz goruyor");
   }
 
   return tags;
@@ -256,6 +256,7 @@ export async function analyzePlacePhotosWithGemini(place: Place): Promise<string
     action: "gemini_analysis_start",
     placeId: place.id,
     placeName: place.name,
+    model: "gemini-3-flash-preview"
   });
   
   // Fotoğraf URL'lerini topla
@@ -404,10 +405,12 @@ export async function analyzePlacePhotosWithGemini(place: Place): Promise<string
     }
 
     // Gemini response_mime_type: "application/json" kullandığı için
-    // direkt JSON parse edebiliriz
+    // direkt JSON parse edebiliriz (ancak bazen markdown gelebilir)
     let result: PhotoAnalysisResult;
     try {
-      result = JSON.parse(text);
+      // Markdown temizliği (working example'daki gibi)
+      let cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      result = JSON.parse(cleanedText);
     } catch (error: any) {
       log.geminiError("JSON parse error", {
         action: "gemini_json_parse_error",

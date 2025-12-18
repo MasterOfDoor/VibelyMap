@@ -28,13 +28,28 @@ export function useAIAnalysis(
   const triggerAnalysis = useCallback(async (place: Place) => {
     const placeId = place.id;
 
-    // If already analyzing or already has AI tags, skip
-    // Check if place already has AI tags (starting with robot icon or identified as AI tags)
-    // In our system, AI tags are added to the existing tags array.
-    // We can check if any tag looks like an AI tag or if we've already completed analysis.
-    
+    // 1. Check if already analyzing (ongoing promise)
     if (ongoingAnalyses.current[placeId]) {
       log.analysis("Analysis already in progress for this place", { placeId });
+      return;
+    }
+
+    // 2. Check if already analyzed in this session (status is completed)
+    if (analysisStatus[placeId]?.completedAt) {
+      log.analysis("Place already analyzed in this session", { placeId });
+      return;
+    }
+
+    // 3. Check if place already has AI tags (starting with 🤖)
+    // This handles cases where tags might have been loaded during search or from a previous click
+    const hasAITags = place.tags?.some(tag => tag.startsWith("🤖") || tag.includes("Işıklandırma") || tag.includes("Priz"));
+    if (hasAITags) {
+      log.analysis("Place already has AI tags, skipping analysis", { placeId });
+      // Mark as completed so we don't check again
+      setAnalysisStatus(prev => ({
+        ...prev,
+        [placeId]: { isAnalyzing: false, completedAt: Date.now() }
+      }));
       return;
     }
 

@@ -41,14 +41,59 @@ function getRedisClient(): Redis | null {
 function setCorsHeaders(response: NextResponse) {
   const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || "*";
   response.headers.set("Access-Control-Allow-Origin", allowedOrigin);
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
-  return response;
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+    return response;
 }
 
 export async function OPTIONS() {
   const response = new NextResponse(null, { status: 204 });
   return setCorsHeaders(response);
+}
+
+// DELETE: Belirli bir mekanın AI etiketlerini sil
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { placeId: string } }
+) {
+  const { placeId } = params;
+
+  try {
+    if (!placeId) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Place ID is required" }, { status: 400 })
+      );
+    }
+
+    const redisClient = getRedisClient();
+    if (!redisClient) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Redis not available" }, { status: 503 })
+      );
+    }
+
+    log.storage("Deleting tags from cache", {
+      action: "cache_delete",
+      placeId,
+    });
+
+    await redisClient.del(`ai-tags:${placeId}`);
+
+    return setCorsHeaders(
+      NextResponse.json({ success: true, message: `Tags for ${placeId} deleted` })
+    );
+  } catch (error: any) {
+    log.storageError("Failed to delete tags", {
+      action: "cache_delete_error",
+      placeId,
+    }, error);
+    return setCorsHeaders(
+      NextResponse.json(
+        { error: "Failed to delete tags", detail: error.message },
+        { status: 500 }
+      )
+    );
+  }
 }
 
 // GET: AI etiketlerini oku

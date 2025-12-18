@@ -116,29 +116,29 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   if (typeof result.mekan_isiklandirma === "number") {
     const isikValue = result.mekan_isiklandirma;
     if (isikValue >= 1 && isikValue <= 5) {
-      tags.push(`Işıklandırma ${isikValue}`);
+      tags.push(`🤖 Işıklandırma ${isikValue}`);
     }
   }
 
   // Ambiyans
   if (result.ambiyans?.retro) {
-    tags.push("Retro");
+    tags.push("🤖 Retro");
   }
   if (result.ambiyans?.modern) {
-    tags.push("Modern");
+    tags.push("🤖 Modern");
   }
 
   // Priz (1-4 arası değer)
   if (typeof result.masada_priz_var_mi === "number") {
     const prizValue = result.masada_priz_var_mi;
     if (prizValue === 1) {
-      tags.push("Priz Az");
+      tags.push("🤖 Priz Az");
     } else if (prizValue === 2) {
-      tags.push("Priz Orta");
+      tags.push("🤖 Priz Orta");
     } else if (prizValue === 3) {
-      tags.push("Priz Var");
+      tags.push("🤖 Priz Var");
     } else if (prizValue === 4) {
-    tags.push("Masada priz");
+      tags.push("🤖 Masada priz");
     }
   }
 
@@ -146,28 +146,28 @@ function convertAnalysisToTags(result: PhotoAnalysisResult): string[] {
   if (typeof result.koltuk_var_mi === "number") {
     const koltukValue = result.koltuk_var_mi;
     if (koltukValue === 0) {
-      tags.push("Koltuk yok");
+      tags.push("🤖 Koltuk yok");
     } else if (koltukValue === 1) {
-      tags.push("Koltuk az");
+      tags.push("🤖 Koltuk az");
     } else if (koltukValue === 2) {
-      tags.push("Koltuk orta");
+      tags.push("🤖 Koltuk orta");
     } else if (koltukValue === 3) {
-      tags.push("Koltuk var");
+      tags.push("🤖 Koltuk var");
     }
   }
 
   // Sigara
   if (result.sigara_iciliyor) {
     if (result.sigara_alani?.includes("acik")) {
-      tags.push("Sigara icilebilir");
+      tags.push("🤖 Sigara icilebilir");
     } else if (result.sigara_alani?.includes("kapali")) {
-      tags.push("Kapali alanda sigara icilebilir");
+      tags.push("🤖 Kapali alanda sigara icilebilir");
     }
   }
 
   // Deniz
   if (result.deniz_manzarasi) {
-    tags.push("Deniz goruyor");
+    tags.push("🤖 Deniz goruyor");
   }
 
   return tags;
@@ -521,11 +521,11 @@ async function getBatchCachedTags(placeIds: string[]): Promise<{ [placeId: strin
   }
 }
 
-// Birden fazla mekan için toplu analiz (optimize edilmiş: önce cache kontrolü, sonra sadece gerekli olanlar için analiz)
+// Birden fazla mekan için toplu analiz (optimize edilmiş: önce cache kontrolü, sonra ChatGPT ve Gemini arasında paylaştırarak analiz)
 export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
   const resultMap = new Map<string, string[]>();
 
-  log.analysis("Starting batch analysis", {
+  log.analysis("Starting optimized batch analysis", {
     action: "batch_analysis_start",
     placesCount: places.length,
   });
@@ -560,49 +560,60 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     uncachedCount: uncachedPlaces.length,
   });
 
-  // 3. Sadece cache'de olmayan place'ler için analiz yap
+  // 3. Sadece cache'de olmayan place'ler için analiz yap (ChatGPT ve Gemini arasında paylaştır)
   if (uncachedPlaces.length > 0) {
-    log.analysis("Starting analysis for uncached places", {
-      action: "batch_analysis_uncached_start",
+    log.analysis("Splitting uncached places between ChatGPT and Gemini", {
+      action: "batch_analysis_split_start",
       uncachedCount: uncachedPlaces.length,
     });
 
-    // Paralel analiz (rate limiting için batch'ler halinde)
-    const batchSize = 3; // Aynı anda maksimum 3 analiz
-    for (let i = 0; i < uncachedPlaces.length; i += batchSize) {
-      const batch = uncachedPlaces.slice(i, i + batchSize);
-      
-      // Batch içindeki place'ler için paralel analiz
-      const batchPromises = batch.map(async (place) => {
+    // Yarısını ChatGPT, yarısını Gemini için ayır
+    const half = Math.ceil(uncachedPlaces.length / 2);
+    const chatGPTBatch = uncachedPlaces.slice(0, half);
+    const geminiBatch = uncachedPlaces.slice(half);
+
+    log.analysis("Analysis split details", {
+      chatGPTCount: chatGPTBatch.length,
+      geminiCount: geminiBatch.length
+    });
+
+    // Analiz fonksiyonlarını tanımla
+    const { analyzePlacePhotosWithGemini } = await import("./Gemini_analysis");
+
+    // Rate limiting için batch'ler halinde işle
+    const parallelLimit = 3;
+    
+    // ChatGPT İşlemleri
+    for (let i = 0; i < chatGPTBatch.length; i += parallelLimit) {
+      const batch = chatGPTBatch.slice(i, i + parallelLimit);
+      await Promise.all(batch.map(async (place) => {
         try {
-          const tags = await analyzePlacePhotos(place);
-          if (tags.length > 0) {
-            resultMap.set(place.id, tags);
-          }
+          const tags = await analyzePlacePhotosWithChatGPT(place);
+          if (tags.length > 0) resultMap.set(place.id, tags);
         } catch (error: any) {
-          log.analysisError("Place analysis error in batch", {
-            action: "batch_analysis_error",
-            placeId: place.id,
-            placeName: place.name,
-          }, error);
+          log.analysisError("ChatGPT batch analysis failed", { placeId: place.id }, error);
         }
-      });
-      
-      await Promise.all(batchPromises);
-      
-      // Rate limiting için batch'ler arası bekleme
-      if (i + batchSize < uncachedPlaces.length) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      }));
+    }
+
+    // Gemini İşlemleri
+    for (let i = 0; i < geminiBatch.length; i += parallelLimit) {
+      const batch = geminiBatch.slice(i, i + parallelLimit);
+      await Promise.all(batch.map(async (place) => {
+        try {
+          const tags = await analyzePlacePhotosWithGemini(place);
+          if (tags.length > 0) resultMap.set(place.id, tags);
+        } catch (error: any) {
+          log.analysisError("Gemini batch analysis failed", { placeId: place.id }, error);
+        }
+      }));
     }
   }
 
-  log.analysis("Batch analysis completed", {
+  log.analysis("Optimized batch analysis completed", {
     action: "batch_analysis_complete",
     placesCount: places.length,
     resultsCount: resultMap.size,
-    cachedCount: Object.keys(cachedTags).length,
-    analyzedCount: uncachedPlaces.length,
   });
   
   return resultMap;

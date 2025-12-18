@@ -268,7 +268,7 @@ export default function Home() {
             // Diğer filtreler veya range filtreleri var, AI analizini hemen yap
             // Önce cache kontrolü yapılacak, sadece cache'de olmayanlar için analiz yapılacak
             console.log("[handleApplyFilters] Place ID'leri alındı:", results.map(r => r.id));
-            console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT)...", results.length, "mekan için");
+            console.log("[handleApplyFilters] AI analizi başlatılıyor (ChatGPT & Gemini %50/%50)...", results.length, "mekan için");
             console.log("[handleApplyFilters] Önce cache kontrolü yapılacak, sonra sadece gerekli olanlar için analiz yapılacak");
             try {
               const analysisResults = await analyzePlacesPhotos(results);
