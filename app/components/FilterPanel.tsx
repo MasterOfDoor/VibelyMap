@@ -75,36 +75,29 @@ export default function FilterPanel({
   };
 
   const handleApply = () => {
-    const hasFilters =
-      selectedFilters.main.length > 0 ||
-      Object.keys(selectedFilters.sub).some(
-        (key) => selectedFilters.sub[key].length > 0
-      ) ||
-      (selectedFilters.ranges && Object.keys(selectedFilters.ranges).length > 0);
-    if (!hasFilters) {
-      alert("En az bir filtre seçmelisin.");
+    // Gerçek bir kategori seçilip seçilmediğini kontrol et
+    const hasCategory = selectedFilters.sub.Kategori && selectedFilters.sub.Kategori.length > 0;
+    
+    if (!hasCategory) {
+      alert("En az bir kategori seçmelisin.");
       return;
     }
-    // Range değerlerini ekle, ama default değerlerdeyse ekleme
+
+    // Range değerlerini ekle, ama SADECE default değerlerden farklıysa ekle
     // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
     const ranges: { [key: string]: number } = {};
-    if (rangeValues.Isiklandirma !== 3) {
-      ranges.Isiklandirma = rangeValues.Isiklandirma;
-    }
-    if (rangeValues.Oturma !== 0) {
-      ranges.Oturma = rangeValues.Oturma;
-    }
-    if (rangeValues.Priz !== 0 && rangeValues.Priz !== undefined) {
-      ranges.Priz = rangeValues.Priz;
-    }
-    // Mesafe her zaman eklenmeli (default olsa bile arama için kritik)
-    ranges.Mesafe = rangeValues.Mesafe;
+    if (rangeValues.Isiklandirma !== 3) ranges.Isiklandirma = rangeValues.Isiklandirma;
+    if (rangeValues.Oturma !== 0) ranges.Oturma = rangeValues.Oturma;
+    if (rangeValues.Priz !== 0 && rangeValues.Priz !== undefined) ranges.Priz = rangeValues.Priz;
     
-    const filtersWithRanges = {
+    const filtersWithExtra = {
       ...selectedFilters,
       ranges: Object.keys(ranges).length > 0 ? ranges : undefined,
+      // searchRadius bilgisini ranges dışından gönderiyoruz ki AI'yı tetiklemesin ama arama yapılabilsin
+      searchRadius: rangeValues.Mesafe 
     };
-    onApplyFilters(filtersWithRanges);
+
+    onApplyFilters(filtersWithExtra as any);
   };
 
   const handleReset = () => {

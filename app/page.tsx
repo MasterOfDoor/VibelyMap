@@ -234,7 +234,7 @@ export default function Home() {
           const categoryResults = await loadPlaces(categoryQuery, {
             lat: userLocation.lat,
             lng: userLocation.lng,
-            radius: filters.ranges?.Mesafe || 2000, // 2km default veya kullanıcı seçimi
+            radius: (filters as any).searchRadius || 2000, // FilterPanel'den gelen özel radius
             type: categoryType, // Yeni API için type parametresi
           });
 
@@ -258,11 +258,11 @@ export default function Home() {
         // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
         const hasRangeFilters = filters.ranges && Object.keys(filters.ranges).some((key) => {
           const value = filters.ranges![key];
-          // Isiklandirma default: 3, Oturma default: 0, Priz default: 0
+          // Sadece AI analizini tetikleyecek fiziksel kriterleri kontrol et
           if (key === "Isiklandirma" && value === 3) return false;
           if (key === "Oturma" && value === 0) return false;
           if (key === "Priz" && value === 0) return false;
-          return true; // Default dışında bir değer varsa true döndür
+          return true; // Kullanıcı bu değerlerden birini değiştirdiyse true döner
         });
         
         // Eğer sadece kategori seçildiyse (diğer filtreler ve range filtreleri yoksa), AI analizini marker tıklamasına ertele
