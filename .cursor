@@ -21,7 +21,14 @@
 - Yapılan değişiklikler sonucu açıklama dosyası (CHANGELOG, UPDATE_NOTES, vb.) oluşturma
 - Sadece kod değişiklikleri yap, dokümantasyon dosyaları oluşturma
 
-## 4. Git Commit Policy
+## 4. Build Verification Policy
+
+- Yapılan değişiklikleri commit ve push etmeden önce hatasız build almalısın
+- `npm run build` komutu başarılı bir şekilde tamamlanmalı
+- Build hatası varsa önce düzeltilmeli, sonra commit ve push yapılmalı
+- TypeScript hataları, lint hataları veya diğer compilation hataları commit edilmemeli
+
+## 5. Git Commit Policy
 
 - Commit mesajları her zaman Conventional Commits formatında olmalı
 - Format: `<type>(<scope>): <subject>`
