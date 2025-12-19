@@ -651,17 +651,58 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     const { analyzePlacePhotosWithGemini } = await import("./Gemini_analysis");
 
     // Rate limiting için batch'ler halinde işle
-    const parallelLimit = 3;
+    // GPT-4o limits: TPM 30,000, RPM 500. Her istek ~7000 token kullanıyor.
+    // Güvenli paralel limit: 1 (sıralı işlem, rate limit aşmayı önler)
+    const chatGPTParallelLimit = 1; // Rate limit aşmayı önlemek için 1'e düşürüldü
+    const geminiParallelLimit = 3; // Gemini için 3 paralel işlem güvenli
+    
+    // Retry helper function with exponential backoff
+    const retryWithBackoff = async <T>(
+      fn: () => Promise<T>,
+      maxRetries: number = 3,
+      initialDelay: number = 1000
+    ): Promise<T> => {
+      let lastError: any;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error: any) {
+          lastError = error;
+          const isRateLimit = error?.message?.includes("rate_limit") || 
+                             error?.message?.includes("429") ||
+                             error?.detail?.error?.code === "rate_limit_exceeded";
+          
+          if (isRateLimit && attempt < maxRetries - 1) {
+            // Exponential backoff: 1s, 2s, 4s...
+            const delay = initialDelay * Math.pow(2, attempt);
+            // Eğer API'den retry-after bilgisi varsa onu kullan
+            const retryAfter = error?.detail?.error?.message?.match(/try again in ([\d.]+)s/);
+            const waitTime = retryAfter ? parseFloat(retryAfter[1]) * 1000 + 500 : delay;
+            
+            console.warn(`[Retry] Rate limit hit, waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          throw error;
+        }
+      }
+      throw lastError;
+    };
     
     // ChatGPT ve Gemini işlemlerini AYNI ANDA başlat
-    console.log(`[Batch Analysis] ChatGPT (${chatGPTBatch.length}) ve Gemini (${geminiBatch.length}) analizleri eş zamanlı başlıyor...`);
+    console.log(`[Batch Analysis] ChatGPT (${chatGPTBatch.length}, limit: ${chatGPTParallelLimit}) ve Gemini (${geminiBatch.length}, limit: ${geminiParallelLimit}) analizleri eş zamanlı başlıyor...`);
     
     const chatGPTPromise = (async () => {
-      for (let i = 0; i < chatGPTBatch.length; i += parallelLimit) {
-        const batch = chatGPTBatch.slice(i, i + parallelLimit);
+      for (let i = 0; i < chatGPTBatch.length; i += chatGPTParallelLimit) {
+        const batch = chatGPTBatch.slice(i, i + chatGPTParallelLimit);
         await Promise.all(batch.map(async (place) => {
           try {
-            const tags = await analyzePlacePhotosWithChatGPT(place);
+            // Retry mekanizması ile analiz yap
+            const tags = await retryWithBackoff(
+              () => analyzePlacePhotosWithChatGPT(place),
+              3, // Max 3 deneme
+              1000 // İlk bekleme süresi 1 saniye
+            );
             if (tags && tags.length > 0) {
               resultMap.set(place.id, tags);
               newlyAnalyzedVenues.push(place.id);
@@ -681,7 +722,7 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
             }
           } catch (error: any) {
             failedVenues.push(place.id);
-            log.analysisError("ChatGPT batch analysis failed for place", {
+            log.analysisError("ChatGPT batch analysis failed for place (after retries)", {
               action: "chatgpt_batch_analysis_failed",
               placeId: place.id,
               placeName: place.name,
@@ -692,8 +733,8 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     })();
 
     const geminiPromise = (async () => {
-      for (let i = 0; i < geminiBatch.length; i += parallelLimit) {
-        const batch = geminiBatch.slice(i, i + parallelLimit);
+      for (let i = 0; i < geminiBatch.length; i += geminiParallelLimit) {
+        const batch = geminiBatch.slice(i, i + geminiParallelLimit);
         await Promise.all(batch.map(async (place) => {
           try {
             const tags = await analyzePlacePhotosWithGemini(place);

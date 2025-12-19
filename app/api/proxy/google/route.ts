@@ -247,6 +247,7 @@ export async function GET(request: NextRequest) {
       
       // FieldMask: Google Places API (New) için field mask
       // photos field'ı tüm fotoğrafları getirir (max 10 fotoğraf)
+      // Not: Field mask syntax'ı: "field.subfield" veya sadece "field"
       const fieldMask = [
         "id",
         "displayName",
@@ -254,12 +255,10 @@ export async function GET(request: NextRequest) {
         "formattedPhoneNumber",
         "websiteUri",
         "location",
-        "regularOpeningHours.weekdayDescriptions",
-        "photos.name", // Tüm fotoğrafların name'leri
-        "photos.widthPx",
-        "photos.heightPx",
         "location.latitude",
         "location.longitude",
+        "regularOpeningHours.weekdayDescriptions",
+        "photos", // photos field'ı tüm photo bilgilerini içerir (name, widthPx, heightPx)
         "types",
         "rating",
         "userRatingCount",
@@ -295,21 +294,30 @@ export async function GET(request: NextRequest) {
           error = { error: { message: errorText || "Unknown error" } };
         }
         
+        // 400 hatası durumunda daha detaylı log
+        const errorMessage = error.error?.message || error.message || "Place details failed";
         console.error("[Google Details] Error:", {
           status: response.status,
           statusText: response.statusText,
           error: error.error || error,
-          errorText: errorText.substring(0, 200),
+          errorText: errorText.substring(0, 500),
           placeId,
           normalizedId,
           url,
+          fieldMask,
         });
+        
+        // 400 hatası için özel mesaj
+        if (response.status === 400) {
+          console.warn("[Google Details] 400 Bad Request - Possible causes: invalid place ID format, invalid field mask, or API key issue");
+        }
         
         return setCorsHeaders(NextResponse.json(
           { 
-            error: error.error?.message || error.message || "Place details failed",
+            error: errorMessage,
             detail: error.error || error,
             placeId,
+            normalizedId,
           },
           { status: response.status }
         ));

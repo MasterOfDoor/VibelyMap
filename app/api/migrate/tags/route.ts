@@ -89,12 +89,14 @@ export async function POST(request: NextRequest) {
     log.analysis("Tag migration failed", {
       action: "migration_error",
       error: error.message,
+      errorStack: error?.stack?.substring(0, 200),
     }, error);
 
     return NextResponse.json(
       { 
         success: false, 
-        error: error.message,
+        error: error.message || "Migration failed",
+        skipped: false,
       },
       { status: 500 }
     );

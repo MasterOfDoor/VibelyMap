@@ -34,21 +34,47 @@ export default function Home() {
       try {
         // Migration durumunu kontrol et
         const statusResponse = await fetch("/api/migrate/tags");
-        const status = await statusResponse.json();
+        if (!statusResponse.ok) {
+          console.warn("[Tag Migration] Status check failed:", statusResponse.status);
+          return;
+        }
+        
+        let status;
+        try {
+          const statusText = await statusResponse.text();
+          status = statusText ? JSON.parse(statusText) : { completed: false };
+        } catch (parseError) {
+          console.warn("[Tag Migration] Failed to parse status response, assuming not completed");
+          status = { completed: false };
+        }
         
         // Eğer migration tamamlanmamışsa çalıştır
         if (!status.completed) {
           const response = await fetch("/api/migrate/tags", {
             method: "POST",
           });
-          const result = await response.json();
+          
+          if (!response.ok) {
+            console.warn("[Tag Migration] Migration request failed:", response.status);
+            return;
+          }
+          
+          let result;
+          try {
+            const resultText = await response.text();
+            result = resultText ? JSON.parse(resultText) : { success: false };
+          } catch (parseError) {
+            console.warn("[Tag Migration] Failed to parse migration response");
+            return;
+          }
+          
           if (result.success) {
             console.log("[Tag Migration] Completed:", result.message);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         // Migration hatası kritik değil, sessizce geç
-        console.warn("[Tag Migration] Failed or already completed:", error);
+        console.warn("[Tag Migration] Failed or already completed:", error?.message || error);
       }
     };
     

@@ -145,11 +145,21 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     log.storageError("Failed to perform batch cache check", {
       action: "batch_cache_read_exception",
+      errorMessage: error?.message || "Unknown error",
+      errorStack: error?.stack?.substring(0, 200),
     }, error);
+    // Hata durumunda bile boş cache sonucu döndür, böylece analiz devam edebilir
     return setCorsHeaders(
       NextResponse.json(
-        { error: "Failed to check cache", detail: error.message },
-        { status: 500 }
+        { 
+          cached: {},
+          uncached: placeIds || [],
+          total: placeIds?.length || 0,
+          cachedCount: 0,
+          uncachedCount: placeIds?.length || 0,
+          error: "Cache check failed, proceeding without cache",
+        },
+        { status: 200 } // 200 döndür ki client hata olarak algılamasın
       )
     );
   }

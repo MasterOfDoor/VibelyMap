@@ -371,14 +371,31 @@ let userCoords = null;
 const friendRequestStorageKey = "friendRequests_v1";
 const reviewsStorageKey = "reviewsData_v1";
 
-// Leaflet haritasi
-const map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
-
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-}).addTo(map);
-L.control.zoom({ position: "topright" }).addTo(map);
+// Leaflet haritasi - Guard clause ile L kontrolü
+let map = null;
+if (typeof L !== "undefined") {
+    try {
+        const mapElement = document.getElementById("map");
+        if (mapElement) {
+            map = L.map("map", { zoomControl: false }).setView([41.015137, 28.97953], 13);
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(map);
+        }
+    } catch (error) {
+        console.warn("[script.js] Leaflet map initialization failed:", error);
+    }
+} else {
+    console.warn("[script.js] Leaflet (L) is not defined. Map features will be disabled.");
+} else if (map) {
+    // Map başarıyla oluşturulduysa zoom control ekle
+    try {
+        L.control.zoom({ position: "topright" }).addTo(map);
+    } catch (error) {
+        console.warn("[script.js] Failed to add zoom control:", error);
+    }
+}
 
 // DOM referanslari
 const btnKonum = document.getElementById("btnKonum");
@@ -1084,10 +1101,14 @@ function clearSearchMarker() {
 
 function showSearchMarker(place) {
     clearSearchMarker();
-    if (!place?.coords) return;
-    searchMarker = L.marker(place.coords).addTo(map);
-    searchMarker.bindPopup(`<strong>${place.name}</strong><br>${place.type}`);
-    searchMarker.openPopup();
+    if (!place?.coords || !map || typeof L === "undefined") return;
+    try {
+        searchMarker = L.marker(place.coords).addTo(map);
+        searchMarker.bindPopup(`<strong>${place.name}</strong><br>${place.type}`);
+        searchMarker.openPopup();
+    } catch (error) {
+        console.warn("[script.js] addSearchMarker failed:", error);
+    }
 }
 
 function ensureExtraPlaces() {
@@ -1119,11 +1140,18 @@ function addMarkers(showList = false, applyClientSideFilters = true) {
         ? places.filter((place) => matchesFilters(place, main, sub))
         : places; // Tüm sonuçları göster
 
+    if (!map || typeof L === "undefined") {
+        console.warn("[script.js] Map or L not available, markers not added");
+        return visible;
+    }
+    
     visible
         .forEach((place) => {
-            const marker = L.marker(place.coords).addTo(map);
-            marker.bindPopup(`<strong>${place.name}</strong><br>${place.type}`);
-            marker.on("click", async () => {
+            if (!place?.coords) return;
+            try {
+                const marker = L.marker(place.coords).addTo(map);
+                marker.bindPopup(`<strong>${place.name}</strong><br>${place.type}`);
+                marker.on("click", async () => {
                 if (pickingLocation) {
                     setEventLocation({ lat: place.coords[0], lng: place.coords[1] }, place);
                     pickingLocation = false;
@@ -2136,8 +2164,16 @@ async function centerOnUser() {
     showToast("Konum aliniyor...");
     try {
         const coords = await ensureUserLocation();
+        if (!map || typeof L === "undefined") {
+            showToast("Harita kullanilamiyor.");
+            return;
+        }
         map.setView([coords.lat, coords.lng], 15);
-        L.marker([coords.lat, coords.lng]).addTo(map).bindPopup("Buradasin").openPopup();
+        try {
+            L.marker([coords.lat, coords.lng]).addTo(map).bindPopup("Buradasin").openPopup();
+        } catch (error) {
+            console.warn("[script.js] Failed to add location marker:", error);
+        }
         showToast("Konum bulundu.");
     } catch (err) {
         showToast("Konum alinamadi: " + err.message);

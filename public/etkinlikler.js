@@ -277,6 +277,12 @@
     }
 
     function wireEventListeners() {
+        // Global değişkenleri kontrol et ve tanımla (eğer yoksa)
+        const eventPanel = typeof window !== "undefined" ? (window.eventPanel || document.getElementById("eventPanel")) : null;
+        const openEventPanelBtn = typeof window !== "undefined" ? (window.openEventPanelBtn || document.getElementById("openEventPanelBtn")) : null;
+        const eventList = typeof window !== "undefined" ? (window.eventList || document.getElementById("eventList")) : null;
+        const eventForm = typeof window !== "undefined" ? (window.eventForm || document.getElementById("eventForm")) : null;
+        
         if (EVENTS_DISABLED) {
             if (eventPanel) eventPanel.classList.add("collapsed", "disabled");
             if (openEventPanelBtn) {
@@ -301,10 +307,21 @@
             }
             return;
         }
+        
+        if (!eventPanel || !openEventPanelBtn) {
+            console.warn("[etkinlikler.js] eventPanel or openEventPanelBtn not found, event listeners not wired");
+            return;
+        }
+        
         openEventPanelBtn?.addEventListener("click", () => {
+            if (!eventPanel) return;
             const willOpen = eventPanel.classList.contains("collapsed");
-            setEventPanel(willOpen);
-            if (willOpen) setEventMode("create");
+            if (typeof setEventPanel === "function") {
+                setEventPanel(willOpen);
+            }
+            if (willOpen && typeof setEventMode === "function") {
+                setEventMode("create");
+            }
         });
 
         eventForm?.addEventListener("submit", (e) => {
