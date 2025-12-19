@@ -493,72 +493,141 @@ export async function analyzePlacePhotosWithChatGPT(place: Place): Promise<strin
   }
 }
 
-// Toplu cache kontrolü yap
+// Toplu cache kontrolü yap (Enhanced with better error handling)
 async function getBatchCachedTags(placeIds: string[]): Promise<{ [placeId: string]: string[] }> {
-  if (placeIds.length === 0) return {};
+  if (placeIds.length === 0) {
+    log.storage("Batch cache check skipped (empty placeIds)", {
+      action: "batch_cache_check_skip",
+    });
+    return {};
+  }
   
   try {
     const placeIdsParam = placeIds.join(",");
+    log.storage("Initiating batch cache check", {
+      action: "batch_cache_check_init",
+      placeIdsCount: placeIds.length,
+    });
+    
     const response = await fetch(`/api/ai-tags/batch?placeIds=${encodeURIComponent(placeIdsParam)}`);
     
     if (!response.ok) {
-      log.storageError("Batch cache check failed", {
-        action: "batch_cache_check_failed",
+      // 500 hatası durumunda bile devam et, cache olmadan analiz yap
+      const errorText = await response.text().catch(() => "Unknown error");
+      log.storageError("Batch cache check HTTP error", {
+        action: "batch_cache_check_http_error",
         status: response.status,
+        statusText: response.statusText,
         placeIdsCount: placeIds.length,
+        errorText: errorText.substring(0, 200),
       });
-      return {};
+      return {}; // Boş döndür, tüm mekanlar analiz edilecek
     }
     
     const data = await response.json();
-    return data.cached || {};
+    const cached = data.cached || {};
+    const cachedCount = Object.keys(cached).length;
+    const uncachedCount = data.uncachedCount || (placeIds.length - cachedCount);
+    
+    log.storage("Batch cache check successful", {
+      action: "batch_cache_check_success",
+      total: placeIds.length,
+      cachedCount,
+      uncachedCount,
+      cachedPlaceIds: Object.keys(cached).slice(0, 5), // İlk 5 cached ID'yi logla
+    });
+    
+    return cached;
   } catch (error: any) {
-    log.storageError("Batch cache check exception", {
+    // Network hatası, timeout vb. durumlarda bile devam et
+    log.storageError("Batch cache check exception (continuing without cache)", {
       action: "batch_cache_check_exception",
       placeIdsCount: placeIds.length,
+      errorType: error?.constructor?.name || "Unknown",
     }, error);
-    return {};
+    return {}; // Boş döndür, tüm mekanlar analiz edilecek
   }
+}
+
+// Enhanced return type for detailed analysis results
+export interface BatchAnalysisResult {
+  resultMap: Map<string, string[]>;
+  cachedVenues: string[];
+  newlyAnalyzedVenues: string[];
+  failedVenues: string[];
+  stats: {
+    total: number;
+    cached: number;
+    newlyAnalyzed: number;
+    failed: number;
+  };
 }
 
 // Birden fazla mekan için toplu analiz (optimize edilmiş: önce cache kontrolü, sonra ChatGPT ve Gemini arasında paylaştırarak analiz)
 export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, string[]>> {
   const resultMap = new Map<string, string[]>();
+  const cachedVenues: string[] = [];
+  const newlyAnalyzedVenues: string[] = [];
+  const failedVenues: string[] = [];
 
-  log.analysis("Starting optimized batch analysis", {
+  log.analysis("Starting optimized batch analysis with cache-first strategy", {
     action: "batch_analysis_start",
     placesCount: places.length,
   });
 
   if (places.length === 0) {
+    log.analysis("No places to analyze, returning empty result", {
+      action: "batch_analysis_empty",
+    });
     return resultMap;
   }
 
   // 1. Önce toplu cache kontrolü yap (Duplicate ID'leri temizle)
   const uniquePlaces = Array.from(new Map(places.map(p => [p.id, p])).values());
   const placeIds = uniquePlaces.map(p => p.id);
-  const cachedTags = await getBatchCachedTags(placeIds);
   
-  // Cache'den gelen tag'leri resultMap'e ekle
+  log.analysis("Checking cache for venue IDs", {
+    action: "cache_check_start",
+    uniquePlaceIdsCount: placeIds.length,
+    originalPlacesCount: places.length,
+  });
+
+  let cachedTags: { [placeId: string]: string[] } = {};
+  try {
+    cachedTags = await getBatchCachedTags(placeIds);
+  } catch (cacheError: any) {
+    // Cache erişim hatası durumunda devam et, tüm mekanları analiz et
+    log.storageError("Batch cache check failed, proceeding with full analysis", {
+      action: "batch_cache_check_failed",
+      placeIdsCount: placeIds.length,
+    }, cacheError);
+    cachedTags = {};
+  }
+  
+  // Cache'den gelen tag'leri resultMap'e ekle ve cachedVenues listesine ekle
   Object.entries(cachedTags).forEach(([placeId, tags]) => {
-    if (tags && tags.length > 0) {
+    if (tags && Array.isArray(tags) && tags.length > 0) {
       resultMap.set(placeId, tags);
-      log.analysis("Using cached tags for place", {
+      cachedVenues.push(placeId);
+      log.analysis("Using cached tags for place (cache hit)", {
         action: "batch_cache_hit",
         placeId,
         tagsCount: tags.length,
+        tags: tags.slice(0, 3), // İlk 3 tag'i logla
       });
     }
   });
 
   // 2. Cache'de olmayan place'leri bul
-  const uncachedPlaces = uniquePlaces.filter(place => !cachedTags[place.id]);
+  const uncachedPlaces = uniquePlaces.filter(place => !cachedTags[place.id] || !cachedTags[place.id]?.length);
   
-  log.analysis("Cache check completed", {
+  log.analysis("Cache check completed - venue categorization", {
     action: "batch_cache_check_complete",
     totalPlaces: places.length,
-    cachedCount: Object.keys(cachedTags).length,
+    uniquePlaces: uniquePlaces.length,
+    cachedCount: cachedVenues.length,
     uncachedCount: uncachedPlaces.length,
+    cachedVenueIds: cachedVenues.slice(0, 10), // İlk 10 ID'yi logla
   });
 
     // 3. Sadece cache'de olmayan place'ler için analiz yap (ChatGPT ve Gemini arasında paylaştır)
@@ -593,12 +662,30 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
         await Promise.all(batch.map(async (place) => {
           try {
             const tags = await analyzePlacePhotosWithChatGPT(place);
-            if (tags.length > 0) {
+            if (tags && tags.length > 0) {
               resultMap.set(place.id, tags);
+              newlyAnalyzedVenues.push(place.id);
+              log.analysis("ChatGPT analysis completed and saved to cache", {
+                action: "chatgpt_analysis_success",
+                placeId: place.id,
+                placeName: place.name,
+                tagsCount: tags.length,
+              });
               // analyzePlacePhotosWithChatGPT zaten saveAITags çağırıyor
+            } else {
+              log.analysis("ChatGPT analysis returned empty tags", {
+                action: "chatgpt_analysis_empty",
+                placeId: place.id,
+                placeName: place.name,
+              });
             }
           } catch (error: any) {
-            log.analysisError("ChatGPT batch analysis failed", { placeId: place.id }, error);
+            failedVenues.push(place.id);
+            log.analysisError("ChatGPT batch analysis failed for place", {
+              action: "chatgpt_batch_analysis_failed",
+              placeId: place.id,
+              placeName: place.name,
+            }, error);
           }
         }));
       }
@@ -610,12 +697,30 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
         await Promise.all(batch.map(async (place) => {
           try {
             const tags = await analyzePlacePhotosWithGemini(place);
-            if (tags.length > 0) {
+            if (tags && tags.length > 0) {
               resultMap.set(place.id, tags);
+              newlyAnalyzedVenues.push(place.id);
+              log.analysis("Gemini analysis completed and saved to cache", {
+                action: "gemini_analysis_success",
+                placeId: place.id,
+                placeName: place.name,
+                tagsCount: tags.length,
+              });
               // analyzePlacePhotosWithGemini zaten saveAITags çağırıyor
+            } else {
+              log.analysis("Gemini analysis returned empty tags", {
+                action: "gemini_analysis_empty",
+                placeId: place.id,
+                placeName: place.name,
+              });
             }
           } catch (error: any) {
-            log.analysisError("Gemini batch analysis failed", { placeId: place.id }, error);
+            failedVenues.push(place.id);
+            log.analysisError("Gemini batch analysis failed for place", {
+              action: "gemini_batch_analysis_failed",
+              placeId: place.id,
+              placeName: place.name,
+            }, error);
           }
         }));
       }
@@ -623,14 +728,34 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
 
     // Her iki modelin tüm analizlerinin bitmesini bekle
     await Promise.all([chatGPTPromise, geminiPromise]);
-    console.log("[Batch Analysis] Tüm AI analizleri tamamlandı.");
+    
+    console.log("[Batch Analysis] Tüm AI analizleri tamamlandı.", {
+      cached: cachedVenues.length,
+      newlyAnalyzed: newlyAnalyzedVenues.length,
+      failed: failedVenues.length,
+    });
   }
 
-  log.analysis("Optimized batch analysis completed", {
+  // Final statistics
+  const stats = {
+    total: places.length,
+    cached: cachedVenues.length,
+    newlyAnalyzed: newlyAnalyzedVenues.length,
+    failed: failedVenues.length,
+  };
+
+  log.analysis("Optimized batch analysis completed with detailed stats", {
     action: "batch_analysis_complete",
-    placesCount: places.length,
-    resultsCount: resultMap.size,
+    ...stats,
+    cachedVenueIds: cachedVenues.slice(0, 5),
+    newlyAnalyzedVenueIds: newlyAnalyzedVenues.slice(0, 5),
+    failedVenueIds: failedVenues.length > 0 ? failedVenues : undefined,
   });
+  
+  // Eğer hata varsa logla ama akışı durdurma
+  if (failedVenues.length > 0) {
+    console.warn(`[Batch Analysis] ${failedVenues.length} mekan için analiz başarısız oldu:`, failedVenues);
+  }
   
   return resultMap;
 }

@@ -283,24 +283,39 @@ export default function Home() {
             setIsBatchAnalyzing(true);
             try {
               const analysisResults = await analyzePlacesPhotos(results);
-              console.log("[handleApplyFilters] AI analizi tamamlandı, sonuç:", analysisResults.size);
-              console.log("[handleApplyFilters] Analiz edilen place ID'leri:", Array.from(analysisResults.keys()));
+              const resultsWithTags = Array.from(analysisResults.keys());
+              const resultsWithoutTags = results.filter(r => !analysisResults.has(r.id)).map(r => r.id);
+              
+              console.log("[handleApplyFilters] AI analizi tamamlandı:", {
+                totalResults: results.length,
+                resultsWithTags: resultsWithTags.length,
+                resultsWithoutTags: resultsWithoutTags.length,
+                placeIdsWithTags: resultsWithTags.slice(0, 5),
+              });
 
               // Analiz sonuçlarını places'lere uygula
               const enrichedResults = results.map((place) => {
                 const analysisTags = analysisResults.get(place.id);
                 if (analysisTags && analysisTags.length > 0) {
-                  console.log("[handleApplyFilters] Mekan zenginleştirildi:", place.name, "Tags:", analysisTags);
+                  console.log(`[handleApplyFilters] ✅ Mekan zenginleştirildi (${analysisTags.length} tag):`, place.name);
                   return {
                     ...place,
                     tags: [...(place.tags || []), ...analysisTags],
                   };
+                } else {
+                  console.log(`[handleApplyFilters] ⚠️ Mekan tag'siz (cache'de yok ve analiz başarısız):`, place.name);
                 }
                 return place;
               });
 
               // Analiz sonrası filtreleme yap
               const filteredAfterAnalysis = filterPlaces(enrichedResults, filters);
+              
+              console.log("[handleApplyFilters] Filtreleme sonrası:", {
+                enrichedResults: enrichedResults.length,
+                filteredResults: filteredAfterAnalysis.length,
+              });
+              
               setPlaces(filteredAfterAnalysis);
               
               if (filteredAfterAnalysis.length > 0) {
@@ -309,13 +324,16 @@ export default function Home() {
                 alert("Seçtiğiniz filtrelerle eşleşen mekan bulunamadı.");
               }
             } catch (error: any) {
-              console.error("[handleApplyFilters] AI analizi hatası:", error);
+              console.error("[handleApplyFilters] ❌ AI analizi kritik hatası:", {
+                error: error.message,
+                stack: error.stack,
+                placeIdsCount: results.length,
+              });
               // Hata durumunda orijinal sonuçları göster (cache'den gelenler varsa onlar kullanılabilir)
               // Google Places sonuçları zaten mevcut, sadece AI analizi başarısız oldu
               setPlaces(results);
               setIsResultsOpen(true);
-              // Kullanıcıya bilgi ver (opsiyonel)
-              console.warn("[handleApplyFilters] AI analizi başarısız oldu, ancak mekanlar gösteriliyor");
+              console.warn("[handleApplyFilters] ⚠️ AI analizi başarısız oldu, ancak Google Places sonuçları gösteriliyor");
             } finally {
               setIsBatchAnalyzing(false);
             }
