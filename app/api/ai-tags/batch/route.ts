@@ -53,6 +53,9 @@ export async function OPTIONS() {
 
 // GET: Birden fazla place ID için cache kontrolü yap
 export async function GET(request: NextRequest) {
+  // placeIds'i try-catch dışında tanımla ki catch bloğunda erişilebilsin
+  let placeIds: string[] = [];
+  
   try {
     const { searchParams } = new URL(request.url);
     const placeIdsParam = searchParams.get("placeIds");
@@ -63,7 +66,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const placeIds = placeIdsParam.split(",").filter(Boolean);
+    placeIds = placeIdsParam.split(",").filter(Boolean);
     
     if (placeIds.length === 0) {
       return setCorsHeaders(
@@ -153,10 +156,10 @@ export async function GET(request: NextRequest) {
       NextResponse.json(
         { 
           cached: {},
-          uncached: placeIds || [],
-          total: placeIds?.length || 0,
+          uncached: placeIds,
+          total: placeIds.length,
           cachedCount: 0,
-          uncachedCount: placeIds?.length || 0,
+          uncachedCount: placeIds.length,
           error: "Cache check failed, proceeding without cache",
         },
         { status: 200 } // 200 döndür ki client hata olarak algılamasın
