@@ -48,17 +48,17 @@ export default function ResultsPanel({
           places.map((place) => {
             const analyzing = isPlaceAnalyzing?.(place.id);
             return (
-              <div
-                key={place.id}
+            <div
+              key={place.id}
                 className={`result-item ${analyzing ? 'analyzing' : ''}`}
-                onClick={() => onPlaceClick(place)}
-              >
-                <div className="result-item-content">
+              onClick={() => onPlaceClick(place)}
+            >
+              <div className="result-item-content">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <h3>{place.name}</h3>
+                <h3>{place.name}</h3>
                     {analyzing && <span className="animate-spin" style={{ fontSize: "12px" }}>⏳</span>}
                   </div>
-                  <p className="result-type">{place.type}</p>
+                <p className="result-type">{place.type}</p>
                 {place.address && (
                   <p className="result-address muted-text tiny">
                     {place.address}
@@ -90,7 +90,7 @@ export default function ResultsPanel({
             </div>
           );
         })
-      )}
+        )}
       </div>
     </aside>
   );

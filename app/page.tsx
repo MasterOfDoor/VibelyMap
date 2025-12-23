@@ -11,6 +11,7 @@ import { useAIAnalysis } from "./hooks/useAIAnalysis";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
 import { Place } from "./components/DetailPanel";
 import { buildQueryFromFilters } from "./utils/filterHelpers";
+import { useProxy } from "./hooks/useProxy";
 import TopBar from "./components/TopBar";
 import SearchOverlay from "./components/SearchOverlay";
 import ResultsPanel from "./components/ResultsPanel";
@@ -108,6 +109,7 @@ export default function Home() {
     performSearch,
   } = useMapSearch();
   const { filterPlaces, applyFilters, resetFilters } = useMapFilters();
+  const { googlePlaceDetails } = useProxy();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isResultsOpen, setIsResultsOpen] = useState(false);
@@ -178,6 +180,64 @@ export default function Home() {
       }
     },
     [performSearch, resetFilters, setPlaces]
+  );
+
+  // Handle place selection from autocomplete
+  const handlePlaceSelect = useCallback(
+    async (placeId: string) => {
+      console.log("[handlePlaceSelect] Place ID seçildi:", placeId);
+      try {
+        // Fetch place details using proxy
+        const detailData = await googlePlaceDetails(placeId);
+        const result = detailData?.result || detailData;
+        
+        if (result) {
+          // Convert to Place format using useMapPlaces normalization logic
+          const photos = Array.isArray(result.photos) && result.photos.length > 0
+            ? result.photos.map((p: any) => {
+                const ref = p?.photo_reference || p?.name;
+                return ref ? `/api/proxy/google?endpoint=photo&ref=${encodeURIComponent(ref)}&maxwidth=800` : "";
+              }).filter(Boolean)
+            : [];
+
+          const place: Place = {
+            id: result.place_id || placeId,
+            name: result.name || "",
+            type: result.types?.[0] || "Mekan",
+            coords: result.geometry?.location 
+              ? [result.geometry.location.lat, result.geometry.location.lng]
+              : [41.015137, 28.97953],
+            address: result.formatted_address || "",
+            website: result.website || "",
+            hours: Array.isArray(result.opening_hours?.weekday_text)
+              ? result.opening_hours.weekday_text.join(" | ")
+              : "",
+            rating: result.rating || null,
+            tel: result.formatted_phone_number || "",
+            photo: photos[0] || "",
+            photos: photos.length > 0 ? photos : undefined,
+            tags: result.types || [],
+            subOptions: { 
+              Kategori: result.types?.map((t: string) => t.replace(/_/g, " ")) || [] 
+            },
+          };
+
+          // Show place on map and open detail panel
+          setPlaces([place]);
+          setSelectedPlace(place);
+          setIsDetailOpen(true);
+          setIsResultsOpen(false);
+
+          // Trigger AI analysis for this place
+          triggerAnalysis(place);
+        }
+      } catch (error: any) {
+        console.error("[handlePlaceSelect] Error:", error);
+        // Fallback to regular search with place ID as query
+        handleSearch(placeId);
+      }
+    },
+    [googlePlaceDetails, setPlaces, triggerAnalysis, handleSearch]
   );
 
   const handleApplyFilters = useCallback(
@@ -432,6 +492,7 @@ export default function Home() {
         isOpen={isSearchOpen}
         onClose={closeSearch}
         onSearch={handleSearch}
+        onPlaceSelect={handlePlaceSelect}
         searchMode={searchMode}
       />
 

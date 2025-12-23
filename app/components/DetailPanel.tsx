@@ -276,7 +276,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
   useEffect(() => {
     if (placeDetails?.id && prevPlaceIdForIndexRef.current !== placeDetails.id) {
       prevPlaceIdForIndexRef.current = placeDetails.id;
-      setCurrentPhotoIndex(0);
+        setCurrentPhotoIndex(0);
       currentPhotoIndexRef.current = 0;
       console.log("[DetailPanel] Place ID changed, resetting photo index to 0");
     }
@@ -487,7 +487,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                         {isAITag && (
                           <span className="tag-badge tag-badge-ai" aria-label="AI analizi etiketi" title="AI ile analiz edildi">
                             🤖
-                          </span>
+              </span>
                         )}
                         <span className="tag-icon">{getTagIcon(tag)}</span>
                         <span className="tag-text">{tag}</span>
@@ -511,8 +511,8 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                       title={feature}
                     >
                       <span className="tag-text">{feature}</span>
-                    </span>
-                  ))}
+              </span>
+            ))}
                 </div>
               </div>
             )}
@@ -549,15 +549,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
           <div className="photo-gallery" style={{ position: "relative" }}>
             {photos.length > 1 && (
               <>
-                <button
-                  className="photo-nav prev"
+              <button
+                className="photo-nav prev"
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
                     handlePrevPhoto(e);
                   }}
-                  aria-label="Önceki foto"
-                  type="button"
+                aria-label="Önceki foto"
+                type="button"
                   style={{
                     position: "absolute",
                     left: "10px",
@@ -585,18 +585,18 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
                   }}
-                >
-                  &lt;
-                </button>
-                <button
-                  className="photo-nav next"
+              >
+                &lt;
+              </button>
+              <button
+                className="photo-nav next"
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
                     handleNextPhoto(e);
                   }}
-                  aria-label="Sonraki foto"
-                  type="button"
+                aria-label="Sonraki foto"
+                type="button"
                   style={{
                     position: "absolute",
                     right: "10px",
@@ -624,9 +624,9 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
                   }}
-                >
-                  &gt;
-                </button>
+              >
+                &gt;
+              </button>
               </>
             )}
             <img
@@ -989,14 +989,14 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             <div style={{ marginBottom: "24px" }}>
               <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
                 Genel Puan: {reviewRating} ⭐
-              </label>
-              <input
-                type="range"
-                id="reviewRating"
-                min="1"
-                max="5"
-                value={reviewRating}
-                onChange={(e) => setReviewRating(Number(e.target.value))}
+            </label>
+            <input
+              type="range"
+              id="reviewRating"
+              min="1"
+              max="5"
+              value={reviewRating}
+              onChange={(e) => setReviewRating(Number(e.target.value))}
                 style={{ width: "100%" }}
               />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
@@ -1166,24 +1166,24 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             {/* Yorum Metni */}
             <div style={{ marginBottom: "16px" }}>
               <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
-                Yorumunuz
-              </label>
-              <textarea
-                id="reviewComment"
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                rows={4}
-                placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "8px",
-                  border: "1px solid #ddd",
-                  fontFamily: "inherit",
-                  resize: "vertical",
-                }}
-                required
-              />
+              Yorumunuz
+            </label>
+            <textarea
+              id="reviewComment"
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={4}
+              placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "8px",
+                border: "1px solid #ddd",
+                fontFamily: "inherit",
+                resize: "vertical",
+              }}
+              required
+            />
             </div>
 
             <div style={{ display: "flex", gap: "8px" }}>

@@ -393,20 +393,39 @@ body {
 
 .search-suggestions.hidden { display: none; }
 
-.suggest-item {
+.suggest-item,
+.suggestion-item {
     width: 100%;
     text-align: left;
     padding: 8px 10px;
     border-radius: 10px;
-    border: 1px solid var(--border);
+    border: none;
     background: rgba(255, 255, 255, 0.85);
     cursor: pointer;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text);
+    transition: background 0.15s ease;
 }
 
-.suggest-item:hover {
-    background: rgba(212, 166, 87, 0.2);
+.suggest-item:hover,
+.suggestion-item:hover {
+    background: rgba(212, 166, 87, 0.15);
+}
+
+.suggestion-item.selected {
+    background: rgba(212, 166, 87, 0.25);
+    font-weight: 600;
+}
+
+.suggestion-item.loading {
+    color: var(--muted);
+    font-style: italic;
+    cursor: default;
+}
+
+.suggestion-text {
+    display: block;
+    width: 100%;
 }
 .icon-pill {
     display: inline-flex;

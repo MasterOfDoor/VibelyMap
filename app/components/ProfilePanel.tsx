@@ -269,9 +269,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         </div>
         <div className="friend-form">
           <div className="relative">
-            <input
-              type="text"
-              id="friendIdentifier"
+          <input
+            type="text"
+            id="friendIdentifier"
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -304,7 +304,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                     onClick={() => handleAddFriend(result.address)}
                   >
                     Ekle
-                  </button>
+          </button>
                 </div>
               ))}
             </div>

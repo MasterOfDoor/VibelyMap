@@ -54,6 +54,27 @@ export function useProxy() {
     return `${PROXY_BASE}/google?${searchParams.toString()}`;
   };
 
+  const googleAutocomplete = async (params: {
+    input: string;
+    lat?: string;
+    lng?: string;
+    radius?: string;
+  }) => {
+    const searchParams = new URLSearchParams({
+      endpoint: "autocomplete",
+      input: params.input,
+    });
+    if (params.lat) searchParams.set("lat", params.lat);
+    if (params.lng) searchParams.set("lng", params.lng);
+    if (params.radius) searchParams.set("radius", params.radius);
+
+    const response = await fetch(`${PROXY_BASE}/google?${searchParams.toString()}`);
+    if (!response.ok) {
+      throw new Error(`Google autocomplete failed: ${response.statusText}`);
+    }
+    return response.json();
+  };
+
   const fetchContent = async (url: string) => {
     const searchParams = new URLSearchParams({
       url,
@@ -97,6 +118,7 @@ export function useProxy() {
     googleTextSearch,
     googlePlaceDetails,
     googlePhoto,
+    googleAutocomplete,
     aiChat,
     fetchContent,
   };

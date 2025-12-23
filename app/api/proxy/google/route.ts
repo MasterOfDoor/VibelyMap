@@ -147,6 +147,49 @@ async function nearbySearchNew(type: string, lat: string, lng: string, radius: s
   };
 }
 
+// Google Places API (New) - Autocomplete
+async function autocompleteNew(input: string, lat?: string, lng?: string, radius?: string) {
+  const requestBody: any = {
+    input: input,
+    locationBias: lat && lng ? {
+      circle: {
+        center: {
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lng),
+        },
+        radius: radius ? parseFloat(radius) : 30000, // 30km default
+      },
+    } : undefined,
+    includedRegionCodes: ["TR"], // Türkiye için
+  };
+
+  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+      "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || `Autocomplete failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  // Format suggestions
+  return {
+    suggestions: (data.suggestions || []).map((suggestion: any) => ({
+      placeId: suggestion.placePrediction?.placeId || "",
+      text: suggestion.placePrediction?.text?.text || "",
+      matchedSubstrings: suggestion.placePrediction?.text?.matches || [],
+    })),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const endpoint = searchParams.get("endpoint");
@@ -156,7 +199,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    if (endpoint === "textsearch") {
+    if (endpoint === "autocomplete") {
+      const input = searchParams.get("input") || "";
+      const lat = searchParams.get("lat") || undefined;
+      const lng = searchParams.get("lng") || undefined;
+      const radius = searchParams.get("radius") || undefined;
+
+      if (!input || input.trim().length < 2) {
+        return setCorsHeaders(
+          NextResponse.json({ suggestions: [] })
+        );
+      }
+
+      const data = await autocompleteNew(input, lat, lng, radius);
+      return setCorsHeaders(NextResponse.json(data));
+    } else if (endpoint === "textsearch") {
       const q = searchParams.get("q") || "";
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");
