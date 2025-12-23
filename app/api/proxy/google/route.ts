@@ -15,8 +15,12 @@ export async function OPTIONS() {
   return setCorsHeaders(response);
 }
 
-// Google Places API (New) - Text Search
+// Google Places API (New) - Text Search (Google Maps benzeri deneyim)
+// Google Maps gibi esnek ve kısıtlamasız arama
 async function textSearchNew(q: string, lat: string, lng: string, radius: string, pageToken?: string) {
+  // Radius'u 1000-2000 arası optimize et (Google Maps gibi)
+  const optimizedRadius = Math.min(Math.max(parseFloat(radius), 1000), 2000);
+  
   const requestBody: any = {
     textQuery: q,
     locationBias: {
@@ -25,22 +29,27 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
           latitude: parseFloat(lat),
           longitude: parseFloat(lng),
         },
-        radius: parseFloat(radius),
+        radius: optimizedRadius, // Google Maps gibi optimize edilmiş radius
       },
     },
-    pageSize: 20,
+    maxResultCount: 20, // İlk sayfa için makul bir limit (pagination ile devam eder)
+    languageCode: "tr", // Türkçe sonuçlar için
   };
+
+  // includedType KULLANILMIYOR - Google Maps gibi tüm sonuçları göster
+  // Kullanıcı text query ile istediği şeyi arar, algoritma en iyi sonuçları döner
 
   if (pageToken) {
     requestBody.pageToken = pageToken;
   }
 
+  // Google Maps'teki liste görünümü için optimize edilmiş FieldMask (sadece gerekli alanlar)
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.photos,places.websiteUri,places.priceLevel",
+      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.photos",
     },
     body: JSON.stringify(requestBody),
   });
@@ -217,7 +226,7 @@ export async function GET(request: NextRequest) {
       const q = searchParams.get("q") || "";
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");
-      const radius = searchParams.get("radius") || "2000";
+      const radius = searchParams.get("radius") || "1500"; // Google Maps gibi 1000-2000 arası default
       const type = searchParams.get("type") || "";
       const nextPageToken = searchParams.get("pagetoken") || "";
 
@@ -228,31 +237,25 @@ export async function GET(request: NextRequest) {
         ));
       }
 
-      // Tek kelimelik query ve type varsa -> Nearby Search (New)
-      const queryWords = q.trim().split(/\s+/).filter(Boolean);
-      const isSingleWord = queryWords.length === 1;
-      
-      if (isSingleWord && type) {
+      // Google Maps mantığı: Text Search kullan (daha akıllı sonuçlar için)
+      // Eğer query varsa Text Search kullan (işletme adları, yorumlar, popülerlik harmanlanır)
+      // includedType KULLANILMIYOR - Google Maps gibi tüm sonuçları göster, algoritma en iyilerini seçer
+      if (q.trim()) {
+        const data = await textSearchNew(q, lat, lng, radius, nextPageToken || undefined);
+        return setCorsHeaders(NextResponse.json(data));
+      }
+
+      // Query yoksa ve type varsa -> Nearby Search (New) kullan
+      if (type) {
         const data = await nearbySearchNew(type, lat, lng, radius, nextPageToken || undefined);
         return setCorsHeaders(NextResponse.json(data));
       }
 
-      // Query yoksa ve type varsa -> Nearby Search (New)
-      if (!q.trim() && type) {
-        const data = await nearbySearchNew(type, lat, lng, radius, nextPageToken || undefined);
-        return setCorsHeaders(NextResponse.json(data));
-      }
-
-      // Query varsa -> Text Search (New)
-      if (!q.trim()) {
-        return setCorsHeaders(NextResponse.json(
-          { error: "missing_query" },
-          { status: 400 }
-        ));
-      }
-
-      const data = await textSearchNew(q, lat, lng, radius, nextPageToken || undefined);
-      return setCorsHeaders(NextResponse.json(data));
+      // Query ve type yoksa hata
+      return setCorsHeaders(NextResponse.json(
+        { error: "missing_query_or_type" },
+        { status: 400 }
+      ));
     } else if (endpoint === "details") {
       const placeId = searchParams.get("place_id");
       if (!placeId) {

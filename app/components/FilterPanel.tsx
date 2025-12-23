@@ -15,11 +15,11 @@ export interface FilterState {
     [key: string]: string[];
   };
   ranges?: {
-    [key: string]: number; // Isiklandirma: 1-5, Oturma (Koltuk): 0-3, Priz: 1-4, Radius: 500-10000
+    [key: string]: number; // Isiklandirma: 1-5, Oturma (Koltuk): 0-3, Priz: 1-4
   };
 }
 
-const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara", "Mesafe"];
+const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
 
 const criterionOptions: { [key: string]: string[] } = {
   Kategori: ["Kafe", "Restoran", "Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"],
@@ -29,7 +29,6 @@ const criterionOptions: { [key: string]: string[] } = {
   Oturma: ["Koltuk var", "Koltuk yok"],
   Deniz: ["Deniz goruyor", "Deniz gormuyor"],
   Sigara: ["Sigara icilebilir", "Kapali alanda sigara icilebilir"],
-  Mesafe: ["500m", "1km", "2km", "3km", "5km", "10km"],
 };
 
 export default function FilterPanel({
@@ -48,7 +47,6 @@ export default function FilterPanel({
     Isiklandirma: 3,
     Oturma: 0,
     Priz: 0,
-    Mesafe: 2000, // Default: 2km
   });
 
   const toggleCriterion = (criterion: string) => {
@@ -93,8 +91,8 @@ export default function FilterPanel({
     const filtersWithExtra = {
       ...selectedFilters,
       ranges: Object.keys(ranges).length > 0 ? ranges : undefined,
-      // searchRadius bilgisini ranges dışından gönderiyoruz ki AI'yı tetiklemesin ama arama yapılabilsin
-      searchRadius: rangeValues.Mesafe 
+      // searchRadius sabit değer (kullanıcı seçemez)
+      searchRadius: 1500 // Google Maps gibi optimize edilmiş sabit radius
     };
 
     onApplyFilters(filtersWithExtra as any);
@@ -102,7 +100,7 @@ export default function FilterPanel({
 
   const handleReset = () => {
     setSelectedFilters({ main: [], sub: {}, ranges: {} });
-    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0, Mesafe: 2000 });
+    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0 });
     setExpandedCriterion(null);
     onResetFilters();
   };
@@ -128,15 +126,14 @@ export default function FilterPanel({
       </div>
       <form id="filterForm" className="filter-list">
         {Object.entries(criterionOptions).map(([criterion, options]) => {
-          // Işıklandırma, Oturma, Priz ve Mesafe için range input göster
-          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz" || criterion === "Mesafe") {
+          // Işıklandırma, Oturma, Priz için range input göster
+          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
             const isIsiklandirma = criterion === "Isiklandirma";
             const isPriz = criterion === "Priz";
-            const isMesafe = criterion === "Mesafe";
             
-            const min = isIsiklandirma ? 1 : (isPriz ? 1 : (isMesafe ? 500 : 0));
-            const max = isIsiklandirma ? 5 : (isPriz ? 4 : (isMesafe ? 10000 : 3));
-            const step = isMesafe ? 500 : 1;
+            const min = isIsiklandirma ? 1 : (isPriz ? 1 : 0);
+            const max = isIsiklandirma ? 5 : (isPriz ? 4 : 3);
+            const step = 1;
             
             const currentValue = rangeValues[criterion];
             
@@ -144,8 +141,6 @@ export default function FilterPanel({
               ? ["Canlı", "", "Doğal", "", "Loş"]
               : isPriz
               ? ["", "Az", "Orta", "Var", "Masada Priz"]
-              : isMesafe
-              ? ["500m", "2km", "5km", "10km"]
               : ["Yok", "Az", "Orta", "Var"];
             
             return (
@@ -159,7 +154,7 @@ export default function FilterPanel({
                   className={`filter-main ${expandedCriterion === criterion ? "active" : ""}`}
                   onClick={() => toggleCriterion(criterion)}
                 >
-                  {criterion === "Mesafe" ? "Arama Mesafesi" : criterion}
+                  {criterion}
                   <span className="chevron">
                     {expandedCriterion === criterion ? "∧" : "∨"}
                   </span>
@@ -168,7 +163,7 @@ export default function FilterPanel({
                   <div style={{ padding: "16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                       <span style={{ minWidth: "80px", fontSize: "14px", fontWeight: "500" }}>
-                        {isMesafe ? `${currentValue / 1000} km` : `Puan: ${currentValue}`}
+                        Puan: {currentValue}
                       </span>
                       <input
                         type="range"
@@ -194,7 +189,7 @@ export default function FilterPanel({
                           WebkitAppearance: "none",
                         }}
                       />
-                      <span style={{ fontSize: "24px", lineHeight: "1" }}>{isMesafe ? "📍" : "⭐"}</span>
+                      <span style={{ fontSize: "24px", lineHeight: "1" }}>⭐</span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#666", marginTop: "4px" }}>
                       {labels.map((label, idx) => (
@@ -209,8 +204,8 @@ export default function FilterPanel({
             );
           }
           
-          // Priz ve Mesafe için chip-option gösterme (range input kullanılıyor)
-          if (criterion === "Priz" || criterion === "Mesafe") {
+          // Priz için chip-option gösterme (range input kullanılıyor)
+          if (criterion === "Priz") {
             return null;
           }
           

@@ -320,7 +320,7 @@ export default function Home() {
           const categoryResults = await loadPlaces(categoryQuery, {
             lat: userLocation.lat,
             lng: userLocation.lng,
-            radius: (filters as any).searchRadius || 2000, // FilterPanel'den gelen özel radius
+            radius: 1500, // Google Maps gibi optimize edilmiş sabit radius (kullanıcı seçemez)
             type: categoryType, // Yeni API için type parametresi
           });
 

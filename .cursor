@@ -28,7 +28,15 @@
 - Build hatası varsa önce düzeltilmeli, sonra commit ve push yapılmalı
 - TypeScript hataları, lint hataları veya diğer compilation hataları commit edilmemeli
 
-## 5. Git Commit Policy
+## 5. User Instruction Policy
+
+- **SADECE kullanıcının sorduğu veya söylediği işlemleri yap**
+- Kullanıcıdan açıkça istenmeyen hiçbir değişiklik yapma
+- Kendi başına farklı işlemler yapma, ekstra özellikler ekleme veya "iyileştirme" yapma
+- Kullanıcının talimatları dışında kod değişikliği yapma
+- Eğer bir şey belirsizse, kullanıcıya sor, varsayımda bulunma
+
+## 6. Git Commit Policy
 
 - Commit mesajları her zaman Conventional Commits formatında olmalı
 - Format: `<type>(<scope>): <subject>`
