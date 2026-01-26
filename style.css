@@ -1847,3 +1847,177 @@ textarea {
 [data-theme="dark"] .pill.primary:hover {
     box-shadow: 0 12px 28px rgba(59, 130, 246, 0.4);
 }
+
+/* Dark Mode Filter Panel Styles */
+[data-theme="dark"] .filter-group {
+    background: var(--panel-strong);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .filter-main {
+    color: var(--text);
+}
+
+[data-theme="dark"] .filter-main.active {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--text);
+}
+
+[data-theme="dark"] .chip-option {
+    background: var(--panel-strong);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .chip-option.active {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: var(--accent);
+    color: var(--text);
+    font-weight: 700;
+}
+
+[data-theme="dark"] .sub-options {
+    background: var(--panel);
+}
+
+/* Dark Mode Tag Styles - Koyu lacivert */
+[data-theme="dark"] .tag {
+    background: rgba(30, 58, 138, 0.4); /* Koyu lacivert */
+    color: #e5e7eb; /* Açık gri yazı */
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+[data-theme="dark"] .tag.subtag {
+    background: rgba(30, 58, 138, 0.3);
+    color: #d1d5db;
+}
+
+[data-theme="dark"] .tag-text {
+    color: #e5e7eb;
+}
+
+/* Dark Mode Profile Stats */
+[data-theme="dark"] .stat {
+    background: var(--panel-strong);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .stat strong {
+    color: var(--text);
+}
+
+[data-theme="dark"] .stat span {
+    color: var(--muted);
+}
+
+[data-theme="dark"] .stat.linkish:hover {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+/* Dark Mode Friends Section */
+[data-theme="dark"] .friends {
+    background: linear-gradient(135deg, rgba(26, 27, 29, 0.95), rgba(42, 43, 45, 0.85));
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .friends h3 {
+    color: var(--text);
+}
+
+[data-theme="dark"] .friends-subtext {
+    color: var(--muted);
+}
+
+[data-theme="dark"] .friend-form {
+    background: var(--panel-strong);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .friend-form input {
+    background: var(--panel);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .friend-form input::placeholder {
+    color: var(--muted);
+}
+
+/* Dark Mode Profile Reviews */
+[data-theme="dark"] .profile-reviews {
+    color: var(--text);
+}
+
+[data-theme="dark"] .profile-reviews h3 {
+    color: var(--text);
+}
+
+[data-theme="dark"] .review-gallery {
+    background: var(--panel-strong);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .review-gallery.empty {
+    color: var(--muted);
+}
+
+/* Dark Mode Connection Suggestions */
+[data-theme="dark"] .connection-suggestions {
+    background: var(--panel-strong);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .connection-suggestions button {
+    background: var(--panel);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .connection-suggestions button:hover {
+    background: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] .suggestion-item {
+    color: var(--text);
+}
+
+[data-theme="dark"] .suggestion-name {
+    color: var(--text);
+}
+
+[data-theme="dark"] .suggestion-address {
+    color: var(--muted);
+}
+
+/* Dark Mode Review List */
+[data-theme="dark"] .review-list {
+    background: var(--panel-strong);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .review-item {
+    background: var(--panel);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+[data-theme="dark"] .review-item strong {
+    color: var(--text);
+}
+
+[data-theme="dark"] .review-item p {
+    color: var(--text);
+}
+
+/* Dark Mode Range Input Labels */
+[data-theme="dark"] .filter-group .sub-options span {
+    color: var(--muted);
+}
+
+[data-theme="dark"] input[type="range"] {
+    accent-color: var(--accent);
+}

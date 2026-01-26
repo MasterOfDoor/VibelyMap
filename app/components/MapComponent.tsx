@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from "@react-google-maps/api";
 import { Place } from "./DetailPanel";
+import { useTheme } from "../contexts/ThemeContext";
 
 export interface MapComponentRef {
   getMap: () => google.maps.Map | null;
@@ -32,6 +33,88 @@ const defaultCenter = {
   lng: 28.9784,
 }; // İstanbul
 
+// Google Maps Dark Mode Styles
+const darkMapStyles: google.maps.MapTypeStyle[] = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#263c3f" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6b9a76" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#38414e" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#212a37" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9ca5b3" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#746855" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#1f2835" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#f3d19c" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "geometry",
+    stylers: [{ color: "#2f3948" }],
+  },
+  {
+    featureType: "transit.station",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d59563" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#17263c" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#515c6d" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#17263c" }],
+  },
+];
+
 // Inner component that uses the loader - only renders when API key is available
 function MapWithLoader({
   apiKey,
@@ -43,6 +126,7 @@ function MapWithLoader({
   isPlaceAnalyzing,
   isBatchAnalyzing = false,
 }: MapComponentProps & { apiKey: string }) {
+  const { isDark } = useTheme();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [activeInfoWindow, setActiveInfoWindow] = useState<string | null>(null);
@@ -60,6 +144,13 @@ function MapWithLoader({
   const onLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
     
+    // Dark mode stilini uygula
+    if (isDark) {
+      mapInstance.setOptions({ styles: darkMapStyles });
+    } else {
+      mapInstance.setOptions({ styles: [] });
+    }
+    
     // Get user location - map hazır olduktan sonra
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -74,7 +165,17 @@ function MapWithLoader({
         }
       );
     }
-  }, []);
+  }, [isDark]);
+
+  // Dark mode değiştiğinde harita stilini güncelle
+  useEffect(() => {
+    if (!map) return;
+    if (isDark) {
+      map.setOptions({ styles: darkMapStyles });
+    } else {
+      map.setOptions({ styles: [] });
+    }
+  }, [map, isDark]);
 
   const onUnmount = useCallback(() => {
     setMap(null);
@@ -222,6 +323,7 @@ function MapWithLoader({
           streetViewControl: false,
           mapTypeControl: false,
           fullscreenControl: true,
+          styles: isDark ? darkMapStyles : [],
         }}
       >
         {/* Place markers */}
@@ -261,11 +363,44 @@ function MapWithLoader({
                       pixelOffset: new google.maps.Size(0, -10),
                     }}
                   >
-                    <div style={{ minWidth: "150px" }}>
-                      <strong>{place.name}</strong>
-                      <br />
-                      <span style={{ color: "#666", fontSize: "0.9em" }}>{place.type}</span>
-                      {place.rating && <><br />⭐ {place.rating}</>}
+                    <div style={{
+                      minWidth: "200px",
+                      padding: "8px 0",
+                      fontFamily: "Roboto, Arial, sans-serif",
+                    }}>
+                      <div style={{
+                        fontSize: "16px",
+                        fontWeight: 500,
+                        color: "#1a73e8",
+                        marginBottom: "4px",
+                        lineHeight: "1.4",
+                      }}>
+                        {place.name}
+                      </div>
+                      <div style={{
+                        fontSize: "13px",
+                        color: "#5f6368",
+                        marginBottom: place.rating ? "4px" : "0",
+                        lineHeight: "1.4",
+                      }}>
+                        {place.type}
+                      </div>
+                      {place.rating && (
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          marginTop: "4px",
+                          fontSize: "13px",
+                          color: "#5f6368",
+                        }}>
+                          <span style={{
+                            color: "#fbbc04",
+                            fontSize: "14px",
+                          }}>⭐</span>
+                          <span style={{ fontWeight: 500 }}>{place.rating}</span>
+                        </div>
+                      )}
                     </div>
                   </InfoWindow>
                 )}
@@ -305,22 +440,39 @@ function MapComponent({
 }: MapComponentProps) {
   const [apiKey, setApiKey] = useState<string>("");
 
-  // API key'i yükle - component mount olduğunda hemen yükle
+  // API key'i yükle - component mount olduğunda hemen yükle (optimize edilmiş)
   useEffect(() => {
+    // Cache'den kontrol et (localStorage)
+    const cachedKey = typeof window !== "undefined" ? localStorage.getItem("maps_api_key") : null;
+    if (cachedKey) {
+      setApiKey(cachedKey);
+    }
+
+    // API'den yükle (cache miss veya ilk yükleme)
     const loadApiKey = async () => {
       try {
-        const response = await fetch("/api/maps-key");
+        const response = await fetch("/api/maps-key", {
+          cache: "force-cache", // Browser cache kullan
+        });
         if (response.ok) {
           const data = await response.json();
           if (data.apiKey) {
             setApiKey(data.apiKey);
+            // Cache'e kaydet
+            if (typeof window !== "undefined") {
+              localStorage.setItem("maps_api_key", data.apiKey);
+            }
           }
         }
       } catch (error) {
         console.error("Failed to load Google Maps API key:", error);
       }
     };
-    loadApiKey();
+    
+    // Cache yoksa veya geçersizse API'den yükle
+    if (!cachedKey) {
+      loadApiKey();
+    }
   }, []);
 
   // API key yüklenene kadar bekle
