@@ -21,9 +21,18 @@ import ProfilePanel from "./components/ProfilePanel";
 import WalletConnectionScreen from "./components/WalletConnectionScreen";
 import UsernameSetupModal from "./components/UsernameSetupModal";
 
-// Leaflet haritasını dinamik olarak yükle (SSR sorunlarını önlemek için)
+// Haritayı dinamik olarak yükle (SSR sorunlarını önlemek için)
+// loading prop'u ile yükleme durumunu göster
 const MapComponent = dynamic(() => import("./components/MapComponent"), {
   ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
+        <p className="text-gray-600">Harita yükleniyor...</p>
+      </div>
+    </div>
+  ),
 });
 
 export default function Home() {
@@ -100,6 +109,14 @@ export default function Home() {
       setMiniAppReady();
     }
   }, [setMiniAppReady, isMiniAppReady]);
+
+  // Harita bileşenini önceden yükle (cüzdan bağlandığında hemen hazır olsun)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // MapComponent'i önceden yükle
+      import("./components/MapComponent");
+    }
+  }, []);
   const { places, loading: placesLoading, loadPlaces, setPlaces } = useMapPlaces();
   const {
     isSearchOpen,
@@ -291,46 +308,125 @@ export default function Home() {
         const seenIds = new Set<string>();
 
         for (const kategori of kategoriOptions) {
-          let categoryQuery = "";
-          let categoryType = "";
+          // Her kategori için birden fazla arama parametresi tanımla
+          type SearchParam = {
+            query: string;
+            type?: string;
+          };
+
+          let searchParams: SearchParam[] = [];
           
           if (kategori === "Kafe") {
-            categoryQuery = "cafe";
-            categoryType = "cafe";
+            // Kafe için ana arama + ekstra parametreler
+            searchParams = [
+              { query: "cafe", type: "cafe" },
+              { query: "coffee shop", type: "cafe" },
+              { query: "kahve", type: "cafe" },
+              { query: "dog_cafe", type: "dog_cafe" },
+            ];
           } else if (kategori === "Restoran") {
-            categoryQuery = "restaurant";
-            categoryType = "restaurant";
+            // Restoran için ana arama + ekstra parametreler
+            searchParams = [
+              { query: "restaurant", type: "restaurant" },
+              { query: "restoran", type: "restaurant" },
+              { query: "lokanta", type: "restaurant" },
+              // Google Places restaurant types
+              { query: "acai_shop", type: "acai_shop" },
+              { query: "afghani_restaurant", type: "afghani_restaurant" },
+              { query: "african_restaurant", type: "african_restaurant" },
+              { query: "american_restaurant", type: "american_restaurant" },
+              { query: "asian_restaurant", type: "asian_restaurant" },
+              { query: "bagel_shop", type: "bagel_shop" },
+              { query: "bakery", type: "bakery" },
+              { query: "bar_and_grill", type: "bar_and_grill" },
+              { query: "barbecue_restaurant", type: "barbecue_restaurant" },
+              { query: "brazilian_restaurant", type: "brazilian_restaurant" },
+              { query: "breakfast_restaurant", type: "breakfast_restaurant" },
+              { query: "brunch_restaurant", type: "brunch_restaurant" },
+              { query: "buffet_restaurant", type: "buffet_restaurant" },
+              { query: "chinese_restaurant", type: "chinese_restaurant" },
+              { query: "chocolate_factory", type: "chocolate_factory" },
+              { query: "chocolate_shop", type: "chocolate_shop" },
+              { query: "confectionery", type: "confectionery" },
+              { query: "deli", type: "deli" },
+              { query: "dessert_restaurant", type: "dessert_restaurant" },
+              { query: "dessert_shop", type: "dessert_shop" },
+              { query: "diner", type: "diner" },
+              { query: "donut_shop", type: "donut_shop" },
+              { query: "fast_food_restaurant", type: "fast_food_restaurant" },
+              { query: "fine_dining_restaurant", type: "fine_dining_restaurant" },
+              { query: "food_court", type: "food_court" },
+              { query: "french_restaurant", type: "french_restaurant" },
+              { query: "greek_restaurant", type: "greek_restaurant" },
+              { query: "hamburger_restaurant", type: "hamburger_restaurant" },
+              { query: "ice_cream_shop", type: "ice_cream_shop" },
+              { query: "indian_restaurant", type: "indian_restaurant" },
+              { query: "indonesian_restaurant", type: "indonesian_restaurant" },
+              { query: "italian_restaurant", type: "italian_restaurant" },
+              { query: "japanese_restaurant", type: "japanese_restaurant" },
+              { query: "juice_shop", type: "juice_shop" },
+              { query: "korean_restaurant", type: "korean_restaurant" },
+              { query: "lebanese_restaurant", type: "lebanese_restaurant" },
+              { query: "meal_delivery", type: "meal_delivery" },
+              { query: "meal_takeaway", type: "meal_takeaway" },
+              { query: "mediterranean_restaurant", type: "mediterranean_restaurant" },
+              { query: "mexican_restaurant", type: "mexican_restaurant" },
+              { query: "middle_eastern_restaurant", type: "middle_eastern_restaurant" },
+              { query: "pizza_restaurant", type: "pizza_restaurant" },
+              { query: "ramen_restaurant", type: "ramen_restaurant" },
+              { query: "sandwich_shop", type: "sandwich_shop" },
+              { query: "seafood_restaurant", type: "seafood_restaurant" },
+              { query: "spanish_restaurant", type: "spanish_restaurant" },
+              { query: "steak_house", type: "steak_house" },
+              { query: "sushi_restaurant", type: "sushi_restaurant" },
+              { query: "tea_house", type: "tea_house" },
+              { query: "thai_restaurant", type: "thai_restaurant" },
+              { query: "turkish_restaurant", type: "turkish_restaurant" },
+              { query: "vegan_restaurant", type: "vegan_restaurant" },
+              { query: "vegetarian_restaurant", type: "vegetarian_restaurant" },
+              { query: "vietnamese_restaurant", type: "vietnamese_restaurant" },
+            ];
           } else if (kategori === "Bar") {
-            categoryQuery = "bar";
-            categoryType = "bar";
+            searchParams = [
+              { query: "bar", type: "bar" },
+              { query: "wine_bar", type: "wine_bar" },
+              { query: "pub", type: "pub" },
+            ];
           } else if (kategori === "Cocktail Lounge") {
-            categoryQuery = "cocktail lounge";
-            categoryType = "bar";
+            searchParams = [
+              { query: "cocktail lounge", type: "bar" },
+            ];
           } else if (kategori === "Meyhane") {
-            categoryQuery = "meyhane";
-            categoryType = "restaurant"; // Google'da meyhane genellikle restaurant veya bar olarak geçer
+            searchParams = [
+              { query: "meyhane", type: "bar" },
+            ];
           } else if (kategori === "Shot Bar") {
-            categoryQuery = "shot bar";
-            categoryType = "bar";
+            searchParams = [
+              { query: "shot bar", type: "bar" },
+            ];
           } else {
-            categoryQuery = kategori.toLowerCase();
-            categoryType = kategori.toLowerCase();
+            searchParams = [
+              { query: kategori.toLowerCase(), type: kategori.toLowerCase() },
+            ];
           }
 
-          const categoryResults = await loadPlaces(categoryQuery, {
-            lat: userLocation.lat,
-            lng: userLocation.lng,
-            radius: 1500, // Google Maps gibi optimize edilmiş sabit radius (kullanıcı seçemez)
-            type: categoryType, // Yeni API için type parametresi
-          });
+          // Her parametre için ayrı ayrı arama yap ve sonuçları birleştir
+          for (const searchParam of searchParams) {
+            const categoryResults = await loadPlaces(searchParam.query, {
+              lat: userLocation.lat,
+              lng: userLocation.lng,
+              radius: 500, // Google Maps gibi optimize edilmiş sabit radius (kullanıcı seçemez)
+              type: searchParam.type, // Yeni API için type parametresi
+            });
 
-          // Duplicate'leri filtrele ve ekle
-          categoryResults.forEach((place) => {
-            if (!seenIds.has(place.id)) {
-              seenIds.add(place.id);
-              allResults.push(place);
-            }
-          });
+            // Duplicate'leri filtrele ve ekle
+            categoryResults.forEach((place) => {
+              if (!seenIds.has(place.id)) {
+                seenIds.add(place.id);
+                allResults.push(place);
+              }
+            });
+          }
         }
 
         const results = allResults;
