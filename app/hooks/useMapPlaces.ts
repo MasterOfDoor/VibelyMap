@@ -127,7 +127,7 @@ export function useMapPlaces() {
           ? { lat: options.lat, lng: options.lng }
           : ISTANBUL_CENTER;
 
-        const searchRadius = options.radius || 2000; // 2km yarıçap varsayılan
+        const searchRadius = options.radius || 500; // 500m yarıçap varsayılan
         const limit = options.limit || 1000; // Yüksek limit, sayfalama ile tüm sonuçları alacağız
 
         // Google Maps benzeri progressive loading: İlk 20 sonuç hemen göster, ikinci 20 arka planda yükle

@@ -34,10 +34,11 @@ export function useMapSearch() {
       setError(null);
       
       try {
+        // Text search için radius sınırı yok - kullanıcı belirli bir mekan adı arıyorsa nerede olursa olsun bulunmalı
         const searchOptions = options || {
           lat: 41.015137,
           lng: 28.97953,
-          radius: 30000,
+          // radius belirtilmiyor - text search için sınır yok
         };
 
         const results = await loadPlaces(query, searchOptions);

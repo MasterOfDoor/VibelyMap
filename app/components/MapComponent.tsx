@@ -361,45 +361,19 @@ function MapWithLoader({
                     onCloseClick={() => setActiveInfoWindow(null)}
                     options={{
                       pixelOffset: new google.maps.Size(0, -10),
+                      disableAutoPan: true, // Harita kaymasını önle
                     }}
                   >
-                    <div style={{
-                      minWidth: "200px",
-                      padding: "8px 0",
-                      fontFamily: "Roboto, Arial, sans-serif",
-                    }}>
-                      <div style={{
-                        fontSize: "16px",
-                        fontWeight: 500,
-                        color: "#1a73e8",
-                        marginBottom: "4px",
-                        lineHeight: "1.4",
-                      }}>
-                        {place.name}
-                      </div>
-                      <div style={{
-                        fontSize: "13px",
-                        color: "#5f6368",
-                        marginBottom: place.rating ? "4px" : "0",
-                        lineHeight: "1.4",
-                      }}>
-                        {place.type}
-                      </div>
+                    {/* Google Maps'in varsayılan stilini kullan - minimal içerik */}
+                    <div>
+                      <strong>{place.name}</strong>
+                      <br />
+                      {place.type}
                       {place.rating && (
-                        <div style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          marginTop: "4px",
-                          fontSize: "13px",
-                          color: "#5f6368",
-                        }}>
-                          <span style={{
-                            color: "#fbbc04",
-                            fontSize: "14px",
-                          }}>⭐</span>
-                          <span style={{ fontWeight: 500 }}>{place.rating}</span>
-                        </div>
+                        <>
+                          <br />
+                          ⭐ {place.rating}
+                        </>
                       )}
                     </div>
                   </InfoWindow>

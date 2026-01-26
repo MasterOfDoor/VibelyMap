@@ -17,21 +17,21 @@ export async function OPTIONS() {
 
 // Google Places API (New) - Text Search (Google Maps benzeri deneyim)
 // Google Maps gibi esnek ve kısıtlamasız arama
+// Text search için radius sınırı yok - kullanıcı belirli bir mekan adı arıyorsa nerede olursa olsun bulunmalı
 async function textSearchNew(q: string, lat: string, lng: string, radius: string, pageToken?: string) {
-  // Radius'u 1000-2000 arası optimize et (Google Maps gibi)
-  const optimizedRadius = Math.min(Math.max(parseFloat(radius), 1000), 2000);
-  
   const requestBody: any = {
     textQuery: q,
-    locationBias: {
+    // locationBias kullanıyoruz ama radius sınırı yok - sadece sonuçları kullanıcıya yakın göstermek için
+    // Text search için radius sınırı olmamalı, bu yüzden çok geniş bir radius kullanıyoruz
+    locationBias: lat && lng ? {
       circle: {
         center: {
           latitude: parseFloat(lat),
           longitude: parseFloat(lng),
         },
-        radius: optimizedRadius, // Google Maps gibi optimize edilmiş radius
+        radius: 50000, // 50km - text search için sınır yok, sadece yakın sonuçları önceliklendirmek için
       },
-    },
+    } : undefined,
     maxResultCount: 20, // İlk sayfa için makul bir limit (pagination ile devam eder)
     pageSize: 20, // Pagination için pageSize (Google Places API New standard)
     languageCode: "tr", // Türkçe sonuçlar için
@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
       const q = searchParams.get("q") || "";
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");
-      const radius = searchParams.get("radius") || "1500"; // Google Maps gibi 1000-2000 arası default
+      const radius = searchParams.get("radius") || "500"; // Default radius 500m
       const type = searchParams.get("type") || "";
       const nextPageToken = searchParams.get("pagetoken") || "";
 
