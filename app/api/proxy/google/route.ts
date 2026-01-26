@@ -247,17 +247,17 @@ export async function GET(request: NextRequest) {
         ));
       }
 
-      // Google Maps mantığı: Text Search kullan (daha akıllı sonuçlar için)
-      // Eğer query varsa Text Search kullan (işletme adları, yorumlar, popülerlik harmanlanır)
-      // includedType KULLANILMIYOR - Google Maps gibi tüm sonuçları göster, algoritma en iyilerini seçer
-      if (q.trim()) {
-        const data = await textSearchNew(q, lat, lng, radius, nextPageToken || undefined);
+      // Type varsa -> Nearby Search kullan (radius sınırı var)
+      // Kategori aramalarında type kullanılır, radius sınırı olmalı
+      if (type) {
+        const data = await nearbySearchNew(type, lat, lng, radius, nextPageToken || undefined);
         return setCorsHeaders(NextResponse.json(data));
       }
 
-      // Query yoksa ve type varsa -> Nearby Search (New) kullan
-      if (type) {
-        const data = await nearbySearchNew(type, lat, lng, radius, nextPageToken || undefined);
+      // Query varsa ve type yoksa -> Text Search kullan (radius sınırı yok)
+      // Text search için kullanıcı belirli bir mekan adı arıyorsa nerede olursa olsun bulunmalı
+      if (q.trim()) {
+        const data = await textSearchNew(q, lat, lng, radius, nextPageToken || undefined);
         return setCorsHeaders(NextResponse.json(data));
       }
 

@@ -364,18 +364,9 @@ function MapWithLoader({
                       disableAutoPan: true, // Harita kaymasını önle
                     }}
                   >
-                    {/* Google Maps'in varsayılan stilini kullan - minimal içerik */}
-                    <div>
-                      <strong>{place.name}</strong>
-                      <br />
-                      {place.type}
-                      {place.rating && (
-                        <>
-                          <br />
-                          ⭐ {place.rating}
-                        </>
-                      )}
-                    </div>
+                    {/* Google Maps'in varsayılan InfoWindow stilini kullan - sadece text içerik */}
+                    {place.name}
+                    {place.rating && ` ⭐ ${place.rating}`}
                   </InfoWindow>
                 )}
               </Marker>
