@@ -48,14 +48,16 @@ function MapComponent({
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
 
-  // API key'i yükle
+  // API key'i yükle - component mount olduğunda hemen yükle
   useEffect(() => {
     const loadApiKey = async () => {
       try {
         const response = await fetch("/api/maps-key");
         if (response.ok) {
           const data = await response.json();
-          setApiKey(data.apiKey);
+          if (data.apiKey) {
+            setApiKey(data.apiKey);
+          }
         }
       } catch (error) {
         console.error("Failed to load Google Maps API key:", error);
@@ -64,10 +66,12 @@ function MapComponent({
     loadApiKey();
   }, []);
 
+  // API key yüklenene kadar loader'ı çağırma - conditional rendering
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: apiKey,
     language: "tr",
+    ...(apiKey ? {} : { disableGoogleFonts: true }),
   });
 
   // Map instance'ı kaydet
@@ -210,7 +214,20 @@ function MapComponent({
     };
   }, [map, userLocation]);
 
-  if (!isLoaded || !apiKey) {
+  // API key yüklenene kadar bekle
+  if (!apiKey) {
+    return (
+      <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
+          <p className="text-gray-600">Harita yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API key yüklendi ama harita henüz hazır değil
+  if (!isLoaded) {
     return (
       <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
         <div className="text-center">
