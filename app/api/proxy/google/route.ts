@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
       const q = searchParams.get("q") || "";
       const lat = searchParams.get("lat");
       const lng = searchParams.get("lng");
-      const radius = searchParams.get("radius") || "500"; // Default radius 500m
+      const radius = searchParams.get("radius") || "1500"; // Default radius 1500m
       const type = searchParams.get("type") || "";
       const nextPageToken = searchParams.get("pagetoken") || "";
 
