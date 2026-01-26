@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { useEffect, useRef, useState } from "react";
 import { useProfileAvatar } from "../hooks/useProfileAvatar";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -23,6 +24,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   
   // User profile hook (username)
   const { profile, isLoading: isProfileLoading } = useUserProfile(address);
+  
+  // Theme hook
+  const { theme, toggleTheme, isDark } = useTheme();
 
   const isLoading = isAvatarLoading || isProfileLoading;
 
@@ -206,9 +210,57 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                 Ayarlar
               </button>
               {isMounted && isConnected && (
-                <button id="signOut" className="pill ghost">
-                  Çıkış yap
-                </button>
+                <>
+                  <button
+                    id="darkModeToggle"
+                    className="pill ghost dark-mode-toggle"
+                    onClick={toggleTheme}
+                    aria-label={isDark ? "Açık moda geç" : "Koyu moda geç"}
+                    title={isDark ? "Açık mod" : "Koyu mod"}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="dark-mode-icon"
+                    >
+                      {isDark ? (
+                        // Sun icon (light mode) - Google Maps style
+                        <>
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="5"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                          />
+                          <path
+                            d="M12 1V3M12 21V23M4.22 4.22L5.64 5.64M18.36 18.36L19.78 19.78M1 12H3M21 12H23M4.22 19.78L5.64 18.36M18.36 5.64L19.78 4.22"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </>
+                      ) : (
+                        // Moon icon (dark mode) - Google Maps style
+                        <path
+                          d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          fill="none"
+                        />
+                      )}
+                    </svg>
+                  </button>
+                  <button id="signOut" className="pill ghost">
+                    Çıkış yap
+                  </button>
+                </>
               )}
               <button
                 id="closeProfile"

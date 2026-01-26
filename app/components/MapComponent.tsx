@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import L from "leaflet";
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from "@react-google-maps/api";
 import { Place } from "./DetailPanel";
 
 export interface MapComponentRef {
-  getMap: () => L.Map | null;
-  addMarker: (coords: [number, number], popup: string) => L.Marker;
+  getMap: () => google.maps.Map | null;
+  addMarker: (coords: [number, number], popup: string) => google.maps.Marker | null;
   clearMarkers: () => void;
   setView: (coords: [number, number], zoom?: number) => void;
   fitBounds: (coords: [number, number][]) => void;
@@ -22,6 +22,16 @@ interface MapComponentProps {
   isBatchAnalyzing?: boolean;
 }
 
+const containerStyle = {
+  width: "100%",
+  height: "100%",
+};
+
+const defaultCenter = {
+  lat: 41.0082,
+  lng: 28.9784,
+}; // İstanbul
+
 function MapComponent({
   places,
   selectedPlace,
@@ -31,188 +41,129 @@ function MapComponent({
   isPlaceAnalyzing,
   isBatchAnalyzing = false,
 }: MapComponentProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
-  const userLocationMarkerRef = useRef<L.Marker | null>(null);
+  const [apiKey, setApiKey] = useState<string>("");
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [activeInfoWindow, setActiveInfoWindow] = useState<string | null>(null);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
 
-  // Fix Leaflet default icon issue
+  // API key'i yükle
   useEffect(() => {
-    // Fix for Leaflet default icon in Next.js
-    if (typeof window !== "undefined") {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-      });
-    }
-  }, []);
-
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
-
-    const map = L.map(mapRef.current).setView([41.0082, 28.9784], 13); // İstanbul
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
-
-    mapInstanceRef.current = map;
-
-    // Get user location - map hazır olduktan sonra
-    if (navigator.geolocation) {
-      // Map'in tamamen yüklenmesini bekle
-      map.whenReady(() => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation([latitude, longitude]);
-            if (mapInstanceRef.current) {
-              mapInstanceRef.current.setView([latitude, longitude], 15);
-            }
-          },
-          (error) => {
-            console.warn("Geolocation error:", error);
-          }
-        );
-      });
-    }
-
-    return () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+    const loadApiKey = async () => {
+      try {
+        const response = await fetch("/api/maps-key");
+        if (response.ok) {
+          const data = await response.json();
+          setApiKey(data.apiKey);
+        }
+      } catch (error) {
+        console.error("Failed to load Google Maps API key:", error);
       }
     };
+    loadApiKey();
   }, []);
 
-  // Update markers when places change
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: apiKey,
+    language: "tr",
+  });
 
-    // Clear existing markers
-    markersRef.current.forEach((marker) => marker.remove());
-    markersRef.current = [];
-
-    // Add markers for each place
-    if (!places || !Array.isArray(places) || isBatchAnalyzing) return;
+  // Map instance'ı kaydet
+  const onLoad = useCallback((mapInstance: google.maps.Map) => {
+    setMap(mapInstance);
     
+    // Get user location - map hazır olduktan sonra
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          mapInstance.setCenter({ lat: latitude, lng: longitude });
+          mapInstance.setZoom(15);
+        },
+        (error) => {
+          console.warn("Geolocation error:", error);
+        }
+      );
+    }
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    setMap(null);
+  }, []);
+
+  // Fit bounds when places change
+  useEffect(() => {
+    if (!map || !shouldFitBounds || places.length === 0 || isBatchAnalyzing) return;
+
+    const bounds = new google.maps.LatLngBounds();
     places.forEach((place) => {
-      if (!place.coords || place.coords.length !== 2) return;
-
-      const analyzing = isPlaceAnalyzing?.(place.id);
-
-      // Create marker with explicit icon
-      const marker = L.marker([place.coords[0], place.coords[1]], {
-        icon: L.divIcon({
-          className: "custom-marker",
-          html: `
-            <div class="marker-container ${analyzing ? 'analyzing' : ''}">
-              <img src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png" class="marker-img" />
-              ${analyzing ? '<div class="marker-pulse"></div>' : ''}
-            </div>
-          `,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-        }),
-      }).addTo(mapInstanceRef.current!);
-
-      const popupContent = `
-        <div style="min-width: 150px;">
-          <strong>${place.name}</strong><br/>
-          <span style="color: #666; font-size: 0.9em;">${place.type}</span>
-          ${place.rating ? `<br/>⭐ ${place.rating}` : ""}
-        </div>
-      `;
-
-      marker.bindPopup(popupContent);
-
-      marker.on("click", () => {
-        onPlaceClick(place);
-        // Zoom yapma - sadece detay paneli açılsın
-        // if (mapInstanceRef.current) {
-        //   mapInstanceRef.current.setView([place.coords[0], place.coords[1]], 16);
-        // }
-      });
-
-      markersRef.current.push(marker);
+      if (place.coords && place.coords.length === 2) {
+        bounds.extend({ lat: place.coords[0], lng: place.coords[1] });
+      }
     });
 
-    // Fit bounds sadece shouldFitBounds true olduğunda (arama sonrası)
-    if (shouldFitBounds && places.length > 0 && mapInstanceRef.current) {
-      const bounds = L.latLngBounds(
-        places.map((p) => [p.coords[0], p.coords[1]] as [number, number])
-      );
-      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 50 });
     }
-  }, [places, onPlaceClick, shouldFitBounds]);
-
-  // Focus on selected place - zoom yapma, sadece marker'ı highlight et
-  // useEffect(() => {
-  //   if (selectedPlace && mapInstanceRef.current) {
-  //     mapInstanceRef.current.setView(
-  //       [selectedPlace.coords[0], selectedPlace.coords[1]],
-  //       16
-  //     );
-  //   }
-  // }, [selectedPlace]);
+  }, [map, places, shouldFitBounds, isBatchAnalyzing]);
 
   // User location marker'ı güncelle
   useEffect(() => {
-    if (!mapInstanceRef.current || !userLocation) return;
+    if (!map || !userLocation) return;
 
     // Eski marker'ı kaldır
     if (userLocationMarkerRef.current) {
-      userLocationMarkerRef.current.remove();
+      userLocationMarkerRef.current.setMap(null);
     }
 
     // Yeni marker ekle (mavi renkli, kullanıcı konumu için)
-    const userIcon = L.divIcon({
-      className: "user-location-marker",
-      html: `<div style="
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #4285F4;
-        border: 3px solid white;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      "></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+    const userIcon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 10,
+      fillColor: "#4285F4",
+      fillOpacity: 1,
+      strokeColor: "#FFFFFF",
+      strokeWeight: 3,
+    };
+
+    const marker = new google.maps.Marker({
+      position: { lat: userLocation[0], lng: userLocation[1] },
+      map: map,
+      icon: userIcon,
+      zIndex: 1000,
+      title: "Konumunuz",
     });
 
-    const marker = L.marker([userLocation[0], userLocation[1]], {
-      icon: userIcon,
-      zIndexOffset: 1000, // Diğer marker'ların üstünde
-    }).addTo(mapInstanceRef.current);
-
-    marker.bindPopup("<strong>Konumunuz</strong>");
     userLocationMarkerRef.current = marker;
-  }, [userLocation]);
+  }, [map, userLocation]);
 
   // Expose location function and map center globally
   useEffect(() => {
     const handleLocationRequest = () => {
-      if (!mapInstanceRef.current) return;
+      if (!map) return;
 
-      if (userLocation && mapInstanceRef.current) {
-        mapInstanceRef.current.setView(userLocation, 15);
+      if (userLocation) {
+        map.setCenter({ lat: userLocation[0], lng: userLocation[1] });
+        map.setZoom(15);
         if (userLocationMarkerRef.current) {
-          userLocationMarkerRef.current.openPopup();
+          // InfoWindow açmak için marker'a tıklama simüle et
+          const infoWindow = new google.maps.InfoWindow({
+            content: "<strong>Konumunuz</strong>",
+          });
+          if (userLocationMarkerRef.current) {
+            infoWindow.open(map, userLocationMarkerRef.current);
+          }
         }
       } else if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
             setUserLocation([latitude, longitude]);
-            if (mapInstanceRef.current) {
-              mapInstanceRef.current.setView([latitude, longitude], 15);
-            }
+            map.setCenter({ lat: latitude, lng: longitude });
+            map.setZoom(15);
           },
           (error) => {
             console.warn("Geolocation error:", error);
@@ -224,9 +175,10 @@ function MapComponent({
 
     // Map center'ı almak için function
     const getMapCenter = () => {
-      if (!mapInstanceRef.current) return { lat: 41.015137, lng: 28.97953 };
-      const center = mapInstanceRef.current.getCenter();
-      return { lat: center.lat, lng: center.lng };
+      if (!map) return { lat: 41.015137, lng: 28.97953 };
+      const center = map.getCenter();
+      if (!center) return { lat: 41.015137, lng: 28.97953 };
+      return { lat: center.lat(), lng: center.lng() };
     };
 
     // Kullanıcı konumunu almak için function
@@ -237,26 +189,99 @@ function MapComponent({
       // Kullanıcı konumu yoksa harita merkezini kullan
       return getMapCenter();
     };
-    
+
     // Store handlers globally
     (window as any).handleMapLocation = handleLocationRequest;
     (window as any).getMapCenter = getMapCenter;
     (window as any).getUserLocation = getUserLocation;
-    
+
     return () => {
       delete (window as any).handleMapLocation;
       delete (window as any).getMapCenter;
       delete (window as any).getUserLocation;
       if (userLocationMarkerRef.current) {
-        userLocationMarkerRef.current.remove();
+        userLocationMarkerRef.current.setMap(null);
       }
     };
-  }, [userLocation]);
+  }, [map, userLocation]);
+
+  if (!isLoaded || !apiKey) {
+    return (
+      <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
+          <p className="text-gray-600">Harita yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 w-full h-full" style={{ zIndex: 1 }}>
-      <div ref={mapRef} className="w-full h-full" style={{ width: "100%", height: "100%" }} />
-      
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={userLocation ? { lat: userLocation[0], lng: userLocation[1] } : defaultCenter}
+        zoom={userLocation ? 15 : 13}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        options={{
+          disableDefaultUI: false,
+          zoomControl: true,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: true,
+        }}
+      >
+        {/* Place markers */}
+        {!isBatchAnalyzing &&
+          places.map((place) => {
+            if (!place.coords || place.coords.length !== 2) return null;
+
+            const analyzing = isPlaceAnalyzing?.(place.id);
+            const isActive = activeInfoWindow === place.id;
+
+            return (
+              <Marker
+                key={place.id}
+                position={{ lat: place.coords[0], lng: place.coords[1] }}
+                onClick={() => {
+                  setActiveInfoWindow(place.id);
+                  onPlaceClick(place);
+                }}
+                icon={
+                  analyzing
+                    ? {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 8,
+                        fillColor: "#d4a657",
+                        fillOpacity: 1,
+                        strokeColor: "#FFFFFF",
+                        strokeWeight: 2,
+                      }
+                    : undefined
+                }
+                animation={analyzing ? google.maps.Animation.BOUNCE : undefined}
+              >
+                {isActive && (
+                  <InfoWindow
+                    onCloseClick={() => setActiveInfoWindow(null)}
+                    options={{
+                      pixelOffset: new google.maps.Size(0, -10),
+                    }}
+                  >
+                    <div style={{ minWidth: "150px" }}>
+                      <strong>{place.name}</strong>
+                      <br />
+                      <span style={{ color: "#666", fontSize: "0.9em" }}>{place.type}</span>
+                      {place.rating && <><br />⭐ {place.rating}</>}
+                    </div>
+                  </InfoWindow>
+                )}
+              </Marker>
+            );
+          })}
+      </GoogleMap>
+
       {isBatchAnalyzing && (
         <div className="absolute inset-0 flex items-center justify-center z-[1000] bg-black/20 backdrop-blur-sm">
           <div className="bg-white px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-300">

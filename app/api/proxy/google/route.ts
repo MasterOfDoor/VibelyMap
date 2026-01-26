@@ -33,6 +33,7 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
       },
     },
     maxResultCount: 20, // İlk sayfa için makul bir limit (pagination ile devam eder)
+    pageSize: 20, // Pagination için pageSize (Google Places API New standard)
     languageCode: "tr", // Türkçe sonuçlar için
   };
 
@@ -60,6 +61,15 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
   }
 
   const data = await response.json();
+  
+  // Debug: API response kontrolü
+  console.log("[textSearchNew] API Response:", {
+    hasPlaces: !!data.places,
+    placesCount: data.places?.length || 0,
+    hasNextPageToken: !!data.nextPageToken,
+    nextPageToken: data.nextPageToken,
+    dataKeys: Object.keys(data),
+  });
   
   // Yeni API formatını eski formata çevir (backward compatibility)
   return {

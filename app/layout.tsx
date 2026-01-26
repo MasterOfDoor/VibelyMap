@@ -5,6 +5,7 @@ import "./globals.css";
 import "../style.css";
 import "./utils/suppressConsoleErrors";
 import { RootProvider } from "./rootProvider";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -33,12 +34,6 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <head>
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossOrigin=""
-        />
         <link rel="manifest" href="/manifest.json" />
         <link
           rel="icon"
@@ -50,9 +45,11 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className={inter.className}>
-        <RootProvider>
-          {children}
-        </RootProvider>
+        <ThemeProvider>
+          <RootProvider>
+            {children}
+          </RootProvider>
+        </ThemeProvider>
         {/* Load vanilla JS modules - script.js must load first */}
         <script src="/script.js" defer></script>
         <script src="/filtreleme.js" defer></script>

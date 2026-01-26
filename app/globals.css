@@ -6,14 +6,15 @@
 .wallet-connection-screen {
   @apply relative w-full h-screen overflow-hidden;
   @apply flex items-center justify-center;
-  @apply bg-gradient-to-br from-[#d4a657] via-[#e2c999] to-[#f6e8c9];
+  background: linear-gradient(135deg, #0a0b0d 0%, #1a1b1d 50%, #2a2b2d 100%);
   min-height: 100vh;
 }
 
 .connection-container {
   @apply w-full max-w-md mx-auto p-6;
-  @apply bg-white rounded-2xl shadow-2xl;
-  @apply border border-gray-200;
+  background-color: #1a1b1d;
+  @apply rounded-2xl shadow-2xl;
+  border: 1px solid #2a2b2d;
 }
 
 .connection-header {
@@ -30,20 +31,22 @@
 }
 
 .connection-icon.error {
-  @apply text-red-500;
+  color: #ef4444;
 }
 
 .connection-title {
   @apply text-2xl font-bold mb-2;
-  @apply text-gray-900;
+  color: #e5e7eb;
 }
 
 .connection-subtitle {
-  @apply text-base text-gray-600;
+  @apply text-base;
+  color: #9ca3af;
 }
 
 .connection-subtitle.error-text {
-  @apply text-red-600 font-medium;
+  @apply font-medium;
+  color: #fca5a5;
 }
 
 .connection-progress {
@@ -51,11 +54,13 @@
 }
 
 .progress-bar {
-  @apply w-full h-2 bg-gray-200 rounded-full overflow-hidden;
+  @apply w-full h-2 rounded-full overflow-hidden;
+  background-color: #2a2b2d;
 }
 
 .progress-fill {
-  @apply h-full bg-[#d4a657] rounded-full;
+  @apply h-full rounded-full;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
   animation: progress 2s ease-in-out infinite;
 }
 
@@ -70,19 +75,25 @@
 
 .connection-instructions {
   @apply space-y-3 mb-6;
-  @apply text-left bg-gray-50 rounded-lg p-4;
+  @apply text-left rounded-lg p-4;
+  background-color: #2a2b2d;
+  border: 1px solid #3a3b3d;
 }
 
 .instruction-text {
-  @apply text-sm text-gray-700;
+  @apply text-sm;
+  color: #d1d5db;
 }
 
 .security-notice {
-  @apply mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg;
+  @apply mb-6 p-4 rounded-lg;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .security-text {
-  @apply text-sm text-blue-800;
+  @apply text-sm;
+  color: #93c5fd;
 }
 
 .wallet-options {
@@ -91,19 +102,23 @@
 
 .wallet-option {
   @apply w-full flex items-center gap-4 p-4;
-  @apply bg-white border-2 border-gray-200 rounded-xl;
-  @apply hover:border-[#d4a657] hover:shadow-md;
+  background-color: #2a2b2d;
+  border: 2px solid #3a3b3d;
+  @apply rounded-xl;
+  @apply hover:border-[#3b82f6] hover:shadow-md;
   @apply transition-all duration-200;
   @apply text-left cursor-pointer;
 }
 
 .wallet-option:disabled {
   @apply opacity-50 cursor-not-allowed;
-  @apply hover:border-gray-200 hover:shadow-none;
+  border-color: #2a2b2d;
+  @apply hover:shadow-none;
 }
 
 .wallet-option.pending {
-  @apply border-[#d4a657] bg-yellow-50;
+  border-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
 }
 
 .wallet-icon {
@@ -116,29 +131,34 @@
 
 .wallet-name {
   @apply text-lg font-semibold mb-1;
-  @apply text-gray-900;
+  color: #e5e7eb;
 }
 
 .wallet-description {
-  @apply text-sm text-gray-600;
+  @apply text-sm;
+  color: #9ca3af;
 }
 
 .wallet-status {
-  @apply text-xs text-gray-500 italic;
+  @apply text-xs italic;
+  color: #6b7280;
 }
 
 .error-details {
-  @apply mb-6 p-4 bg-red-50 border border-red-200 rounded-lg;
+  @apply mb-6 p-4 rounded-lg;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .error-title {
   @apply text-lg font-semibold mb-3;
-  @apply text-red-900;
+  color: #fca5a5;
 }
 
 .error-list {
   @apply space-y-2 list-disc list-inside;
-  @apply text-sm text-red-800;
+  @apply text-sm;
+  color: #fca5a5;
 }
 
 .connection-actions {
@@ -147,14 +167,17 @@
 
 .btn-primary {
   @apply flex-1 px-6 py-3;
-  @apply bg-[#d4a657] text-white font-semibold;
-  @apply rounded-xl hover:bg-[#c49547];
-  @apply transition-colors duration-200;
-  @apply focus:outline-none focus:ring-2 focus:ring-[#d4a657] focus:ring-offset-2;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  @apply text-white font-semibold;
+  @apply rounded-xl;
+  @apply transition-all duration-200;
+  @apply hover:shadow-lg hover:shadow-blue-500/50;
+  @apply focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2 focus:ring-offset-[#1a1b1d];
 }
 
 .connection-help {
-  @apply mt-6 pt-6 border-t border-gray-200;
+  @apply mt-6 pt-6;
+  border-top: 1px solid #2a2b2d;
 }
 
 .help-details {
@@ -162,21 +185,26 @@
 }
 
 .help-summary {
-  @apply cursor-pointer text-gray-700 hover:text-[#d4a657];
-  @apply font-medium;
+  @apply cursor-pointer font-medium;
+  color: #d1d5db;
+  @apply hover:text-[#3b82f6];
 }
 
 .help-content {
-  @apply mt-3 space-y-2 text-gray-600;
+  @apply mt-3 space-y-2;
+  color: #9ca3af;
 }
 
 .help-link {
-  @apply text-[#d4a657] hover:underline ml-1;
+  color: #3b82f6;
+  @apply hover:underline ml-1;
 }
 
 .security-tip {
-  @apply mt-3 pt-3 border-t border-gray-200;
-  @apply text-xs text-gray-600 italic;
+  @apply mt-3 pt-3;
+  border-top: 1px solid #2a2b2d;
+  @apply text-xs italic;
+  color: #6b7280;
 }
 
 /* Accessibility improvements */
@@ -185,21 +213,23 @@
 }
 
 .wallet-option:focus {
-  @apply outline-none ring-2 ring-[#d4a657] ring-offset-2;
+  @apply outline-none ring-2 ring-[#3b82f6] ring-offset-2;
+  ring-offset-color: #1a1b1d;
 }
 
 .btn-primary:focus {
-  @apply outline-none ring-2 ring-[#d4a657] ring-offset-2;
+  @apply outline-none ring-2 ring-[#3b82f6] ring-offset-2;
+  ring-offset-color: #1a1b1d;
 }
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .connection-container {
-    @apply border-2 border-gray-900;
+    border: 2px solid #e5e7eb;
   }
   
   .wallet-option {
-    @apply border-2 border-gray-900;
+    border: 2px solid #e5e7eb;
   }
 }
 

@@ -172,6 +172,13 @@ export function useMapPlaces() {
         const firstPageItems = Array.isArray(firstPageResponse.results) ? firstPageResponse.results : [];
         const nextPageToken = firstPageResponse.next_page_token;
 
+        // Debug: nextPageToken kontrolü
+        console.log("[Google Maps Style] nextPageToken check:", {
+          hasToken: !!nextPageToken,
+          token: nextPageToken,
+          responseKeys: Object.keys(firstPageResponse),
+        });
+
         // İlk 20 sonucu hemen normalize et ve göster (No-Lag UX)
         const firstPageRawPlaces = firstPageItems.map(normalizePlace).filter(Boolean) as Place[];
         const firstPageEnrichedPlaces = firstPageRawPlaces.map(enrichPlace);
