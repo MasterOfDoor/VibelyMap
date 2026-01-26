@@ -55,10 +55,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Migration tamamlandı flag'i oluştur
-    await writeFile(MIGRATION_FLAG_FILE, JSON.stringify({
-      completed: true,
-      timestamp: new Date().toISOString(),
-    }), "utf-8");
+    try {
+      await writeFile(MIGRATION_FLAG_FILE, JSON.stringify({
+        completed: true,
+        timestamp: new Date().toISOString(),
+      }), "utf-8");
+    } catch (writeError: any) {
+      // File system yazma hatası (örneğin Vercel'de read-only filesystem)
+      // Bu durumda migration'ı tamamlanmış olarak işaretle ama flag dosyası oluşturma
+      log.analysis("Could not write migration flag file (may be read-only filesystem)", {
+        action: "migration_flag_write_error",
+        error: writeError.message,
+      });
+      // Devam et, migration başarılı sayılır
+    }
 
     log.analysis("Tag migration completed", {
       action: "migration_complete",

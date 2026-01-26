@@ -32,7 +32,9 @@ const defaultCenter = {
   lng: 28.9784,
 }; // İstanbul
 
-function MapComponent({
+// Inner component that uses the loader - only renders when API key is available
+function MapWithLoader({
+  apiKey,
   places,
   selectedPlace,
   onPlaceClick,
@@ -40,38 +42,18 @@ function MapComponent({
   shouldFitBounds = false,
   isPlaceAnalyzing,
   isBatchAnalyzing = false,
-}: MapComponentProps) {
-  const [apiKey, setApiKey] = useState<string>("");
+}: MapComponentProps & { apiKey: string }) {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [activeInfoWindow, setActiveInfoWindow] = useState<string | null>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const userLocationMarkerRef = useRef<google.maps.Marker | null>(null);
 
-  // API key'i yükle - component mount olduğunda hemen yükle
-  useEffect(() => {
-    const loadApiKey = async () => {
-      try {
-        const response = await fetch("/api/maps-key");
-        if (response.ok) {
-          const data = await response.json();
-          if (data.apiKey) {
-            setApiKey(data.apiKey);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load Google Maps API key:", error);
-      }
-    };
-    loadApiKey();
-  }, []);
-
-  // API key yüklenene kadar loader'ı çağırma - conditional rendering
+  // useJsApiLoader hook'u sadece API key varsa çağrılır (bu component sadece key varsa render edilir)
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: apiKey,
     language: "tr",
-    ...(apiKey ? {} : { disableGoogleFonts: true }),
   });
 
   // Map instance'ı kaydet
@@ -214,18 +196,6 @@ function MapComponent({
     };
   }, [map, userLocation]);
 
-  // API key yüklenene kadar bekle
-  if (!apiKey) {
-    return (
-      <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
-          <p className="text-gray-600">Harita yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
-
   // API key yüklendi ama harita henüz hazır değil
   if (!isLoaded) {
     return (
@@ -319,6 +289,64 @@ function MapComponent({
         </div>
       )}
     </div>
+  );
+}
+
+MapWithLoader.displayName = "MapWithLoader";
+
+function MapComponent({
+  places,
+  selectedPlace,
+  onPlaceClick,
+  onLocationClick,
+  shouldFitBounds = false,
+  isPlaceAnalyzing,
+  isBatchAnalyzing = false,
+}: MapComponentProps) {
+  const [apiKey, setApiKey] = useState<string>("");
+
+  // API key'i yükle - component mount olduğunda hemen yükle
+  useEffect(() => {
+    const loadApiKey = async () => {
+      try {
+        const response = await fetch("/api/maps-key");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.apiKey) {
+            setApiKey(data.apiKey);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load Google Maps API key:", error);
+      }
+    };
+    loadApiKey();
+  }, []);
+
+  // API key yüklenene kadar bekle
+  if (!apiKey) {
+    return (
+      <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
+          <p className="text-gray-600">Harita yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // API key yüklendi, MapWithLoader component'ini render et
+  return (
+    <MapWithLoader
+      apiKey={apiKey}
+      places={places}
+      selectedPlace={selectedPlace}
+      onPlaceClick={onPlaceClick}
+      onLocationClick={onLocationClick}
+      shouldFitBounds={shouldFitBounds}
+      isPlaceAnalyzing={isPlaceAnalyzing}
+      isBatchAnalyzing={isBatchAnalyzing}
+    />
   );
 }
 

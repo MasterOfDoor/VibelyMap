@@ -388,8 +388,10 @@ if (typeof L !== "undefined") {
     }
 } else {
     console.warn("[script.js] Leaflet (L) is not defined. Map features will be disabled.");
-} else if (map) {
-    // Map başarıyla oluşturulduysa zoom control ekle
+}
+
+// Map başarıyla oluşturulduysa zoom control ekle
+if (map && typeof L !== "undefined") {
     try {
         L.control.zoom({ position: "topright" }).addTo(map);
     } catch (error) {
