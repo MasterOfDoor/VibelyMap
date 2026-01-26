@@ -364,9 +364,11 @@ function MapWithLoader({
                       disableAutoPan: true, // Harita kaymasını önle
                     }}
                   >
-                    {/* Google Maps'in varsayılan InfoWindow stilini kullan - sadece text içerik */}
-                    {place.name}
-                    {place.rating && ` ⭐ ${place.rating}`}
+                    {/* Google Maps'in varsayılan InfoWindow stilini kullan - tek bir string içerik */}
+                    <div>
+                      {place.name}
+                      {place.rating && ` ⭐ ${place.rating}`}
+                    </div>
                   </InfoWindow>
                 )}
               </Marker>

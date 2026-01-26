@@ -411,12 +411,14 @@ export default function Home() {
           }
 
           // Her parametre için ayrı ayrı arama yap ve sonuçları birleştir
+          // Kategori aramalarında sadece type kullanılmalı, query gönderilmemeli (nearby search için)
           for (const searchParam of searchParams) {
-            const categoryResults = await loadPlaces(searchParam.query, {
+            // Kategori aramalarında query gönderme - sadece type ile nearby search kullan
+            const categoryResults = await loadPlaces("", {
               lat: userLocation.lat,
               lng: userLocation.lng,
               radius: 500, // Google Maps gibi optimize edilmiş sabit radius (kullanıcı seçemez)
-              type: searchParam.type, // Yeni API için type parametresi
+              type: searchParam.type, // Yeni API için type parametresi - nearby search kullanılacak
             });
 
             // Duplicate'leri filtrele ve ekle

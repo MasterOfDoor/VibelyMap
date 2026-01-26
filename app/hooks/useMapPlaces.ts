@@ -114,8 +114,9 @@ export function useMapPlaces() {
         type?: string;
       } = {}
     ) => {
-      if (!query.trim()) {
-        setError("Sorgu boş olamaz");
+      // Query boşsa ama type varsa nearby search kullanılacak, hata döndürme
+      if (!query.trim() && !options.type) {
+        setError("Sorgu veya type belirtilmelidir");
         return [];
       }
 
