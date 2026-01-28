@@ -31,7 +31,13 @@ export default function SearchOverlay({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const { googleAutocomplete, googlePlaceDetails } = useProxy();
+  const currentQueryRef = useRef<string>("");
+  const [noResultsFor, setNoResultsFor] = useState<string | null>(null);
+  const { googleAutocomplete } = useProxy();
+
+  useEffect(() => {
+    currentQueryRef.current = query;
+  }, [query]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -39,50 +45,64 @@ export default function SearchOverlay({
     }
   }, [isOpen]);
 
-  // Autocomplete fetch with debounce
+  // Autocomplete fetch with debounce, stale-response ignore, and timeout
   const fetchAutocomplete = useCallback(async (input: string) => {
-    if (!input || input.trim().length < 2) {
+    const trimmed = input?.trim() || "";
+    if (trimmed.length < 2) {
       setSuggestions([]);
+      setIsLoadingSuggestions(false);
       return;
     }
 
+    setNoResultsFor(null);
     setIsLoadingSuggestions(true);
+
+    let lat: string | undefined;
+    let lng: string | undefined;
     try {
-      // Get user location if available
-      let lat: string | undefined;
-      let lng: string | undefined;
-
       if (navigator.geolocation && (window as any).getUserLocation) {
-        try {
-          const userLoc = (window as any).getUserLocation();
-          if (userLoc) {
-            lat = userLoc.lat?.toString();
-            lng = userLoc.lng?.toString();
-          }
-        } catch (e) {
-          // Fallback to Istanbul center
-          lat = "41.015137";
-          lng = "28.97953";
+        const userLoc = (window as any).getUserLocation();
+        if (userLoc?.lat != null && userLoc?.lng != null) {
+          lat = String(userLoc.lat);
+          lng = String(userLoc.lng);
         }
-      } else {
-        // Default Istanbul center
-        lat = "41.015137";
-        lng = "28.97953";
       }
+    } catch {
+      /* ignore */
+    }
+    if (lat == null || lng == null) {
+      lat = "41.015137";
+      lng = "28.97953";
+    }
 
-      const data = await googleAutocomplete({
-        input: input.trim(),
-        lat,
-        lng,
-        radius: "30000", // 30km
-      });
+    const fetchPromise = googleAutocomplete({
+      input: trimmed,
+      lat,
+      lng,
+      radius: "30000",
+    });
 
-      setSuggestions(data.suggestions || []);
-    } catch (error: any) {
-      console.error("[Autocomplete] Error:", error);
+    const timeoutMs = 10000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Autocomplete timeout")), timeoutMs)
+    );
+
+    try {
+      const data = await Promise.race([fetchPromise, timeoutPromise]);
+      if (currentQueryRef.current.trim() !== trimmed) return;
+      const list = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      setSuggestions(list);
+      if (list.length === 0) setNoResultsFor(trimmed);
+      else setNoResultsFor(null);
+    } catch (err: any) {
+      if (currentQueryRef.current.trim() !== trimmed) return;
+      console.error("[Autocomplete] Error:", err?.message || err);
       setSuggestions([]);
+      setNoResultsFor(null);
     } finally {
-      setIsLoadingSuggestions(false);
+      if (currentQueryRef.current.trim() === trimmed) {
+        setIsLoadingSuggestions(false);
+      }
     }
   }, [googleAutocomplete]);
 
@@ -90,14 +110,16 @@ export default function SearchOverlay({
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
 
-    if (query.trim().length >= 2) {
-      debounceTimerRef.current = setTimeout(() => {
-        fetchAutocomplete(query);
-      }, 300); // 300ms debounce
+    const q = query.trim();
+    if (q.length >= 2) {
+      debounceTimerRef.current = setTimeout(() => fetchAutocomplete(query), 300);
     } else {
       setSuggestions([]);
+      setNoResultsFor(null);
+      setIsLoadingSuggestions(false);
     }
 
     return () => {
@@ -249,7 +271,7 @@ export default function SearchOverlay({
         >
           Ara
         </button>
-        {(suggestions.length > 0 || isLoadingSuggestions) && (
+        {(suggestions.length > 0 || isLoadingSuggestions || (noResultsFor != null && noResultsFor === query.trim())) && (
           <div 
             id="searchSuggestions" 
             ref={suggestionsRef}
@@ -257,6 +279,8 @@ export default function SearchOverlay({
           >
             {isLoadingSuggestions ? (
               <div className="suggestion-item loading">Aranıyor...</div>
+            ) : noResultsFor != null && noResultsFor === query.trim() ? (
+              <div className="suggestion-item loading">Sonuç bulunamadı</div>
             ) : (
               suggestions.map((suggestion, index) => (
                 <button

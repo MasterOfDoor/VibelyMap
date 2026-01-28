@@ -104,7 +104,7 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
 async function nearbySearchNew(type: string, lat: string, lng: string, radius: string, pageToken?: string) {
   const requestBody: any = {
     includedTypes: [type],
-    maxResultCount: 20,
+    maxResultCount:1000,
     locationRestriction: {
       circle: {
         center: {
@@ -170,6 +170,7 @@ async function nearbySearchNew(type: string, lat: string, lng: string, radius: s
 async function autocompleteNew(input: string, lat?: string, lng?: string, radius?: string) {
   const requestBody: any = {
     input: input,
+    languageCode: "tr",
     locationBias: lat && lng ? {
       circle: {
         center: {
@@ -182,30 +183,47 @@ async function autocompleteNew(input: string, lat?: string, lng?: string, radius
     includedRegionCodes: ["TR"], // Türkiye için
   };
 
-  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-      "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
-    },
-    body: JSON.stringify(requestBody),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  let response: Response;
+  try {
+    response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+        "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
+      },
+      body: JSON.stringify(requestBody),
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || `Autocomplete failed: ${response.statusText}`);
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.error?.message || `Autocomplete failed: ${response.statusText}`);
   }
 
   const data = await response.json();
-  
-  // Format suggestions
+  const rawSuggestions = data.suggestions || [];
+
+  // Google uses { startOffset, endOffset }; UI expects { offset, length }
+  const toOffsetLength = (m: { startOffset?: number; endOffset?: number; offset?: number; length?: number }) => {
+    const start = m.startOffset ?? m.offset ?? 0;
+    const end = m.endOffset ?? (typeof m.length === "number" ? start + m.length : start);
+    return { offset: start, length: Math.max(0, end - start) };
+  };
+
   return {
-    suggestions: (data.suggestions || []).map((suggestion: any) => ({
-      placeId: suggestion.placePrediction?.placeId || "",
-      text: suggestion.placePrediction?.text?.text || "",
-      matchedSubstrings: suggestion.placePrediction?.text?.matches || [],
-    })),
+    suggestions: rawSuggestions
+      .filter((s: any) => s.placePrediction?.placeId)
+      .map((suggestion: any) => ({
+        placeId: suggestion.placePrediction.placeId,
+        text: suggestion.placePrediction?.text?.text || "",
+        matchedSubstrings: (suggestion.placePrediction?.text?.matches || []).map(toOffsetLength),
+      })),
   };
 }
 

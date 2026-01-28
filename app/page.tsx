@@ -552,7 +552,7 @@ export default function Home() {
 
       <TopBar
         onMenuToggle={() => setIsFilterOpen(!isFilterOpen)}
-        onSearchClick={() => openSearch("map")}
+        onSearchClick={() => (isSearchOpen ? closeSearch() : openSearch("map"))}
         onLocationClick={() => {
           if ((window as any).handleMapLocation) {
             (window as any).handleMapLocation();
@@ -569,7 +569,7 @@ export default function Home() {
             setSelectedPlace(null);
           }
         }}
-        onEventsClick={() => openSearch("event")}
+        onEventsClick={() => (isSearchOpen ? closeSearch() : openSearch("event"))}
       />
 
       <MapComponent

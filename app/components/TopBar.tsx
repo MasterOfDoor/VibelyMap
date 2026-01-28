@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useProfileAvatar } from "../hooks/useProfileAvatar";
 
@@ -21,9 +21,13 @@ export default function TopBar({
 }: TopBarProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   
   // Cloudinary avatar hook
-  const { avatarUrl, isLoading } = useProfileAvatar(address);
+  const { avatarUrl } = useProfileAvatar(address);
+
+  const handleMouseEnter = useCallback(() => setIsHovered(true), []);
+  const handleMouseLeave = useCallback(() => setIsHovered(false), []);
 
   // Client-side hydration için
   useEffect(() => {
@@ -52,7 +56,16 @@ export default function TopBar({
   }, [isMounted, isConnected, address, avatarUrl]);
 
   return (
-    <div className="top-bar">
+    <div
+      className="top-bar-wrapper"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      aria-label="Üst menü hover alanı"
+    >
+      <div
+        className={`top-bar ${isHovered ? "top-bar--visible" : "top-bar--hidden"}`}
+        aria-hidden={!isHovered}
+      >
       <div className="brand-group">
         <button
           id="menuToggle"
@@ -121,6 +134,7 @@ export default function TopBar({
           <span className="profile-label">Profil</span>
         </button>
       </div>
+    </div>
     </div>
   );
 }
