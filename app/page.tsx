@@ -307,6 +307,8 @@ export default function Home() {
         const allResults: Place[] = [];
         const seenIds = new Set<string>();
 
+        console.log("[handleApplyFilters] Starting searches for categories:", kategoriOptions);
+
         for (const kategori of kategoriOptions) {
           // Her kategori için birden fazla arama parametresi tanımla
           type SearchParam = {
@@ -421,6 +423,8 @@ export default function Home() {
               type: searchParam.type, // Yeni API için type parametresi - nearby search kullanılacak
             });
 
+            console.log(`[handleApplyFilters] Category search: "${searchParam.type}", Results: ${categoryResults.length}`);
+
             // Duplicate'leri filtrele ve ekle
             categoryResults.forEach((place) => {
               if (!seenIds.has(place.id)) {
@@ -437,6 +441,12 @@ export default function Home() {
         const otherFilters = Object.keys(filters.sub).filter(
           (key) => key !== "Kategori" && filters.sub[key].length > 0
         );
+        
+        console.log("[handleApplyFilters] Category searches completed:", {
+          totalResults: results.length,
+          uniqueResults: seenIds.size,
+          categories: kategoriOptions,
+        });
         
         // Range filtreleri var mı kontrol et (default değerler dikkate alınmaz)
         // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0

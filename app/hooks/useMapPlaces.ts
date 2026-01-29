@@ -174,10 +174,14 @@ export function useMapPlaces() {
         const nextPageToken = firstPageResponse.next_page_token;
 
         // Debug: nextPageToken kontrolü
+        const isNearbySearch = !!options.type;
         console.log("[Google Maps Style] nextPageToken check:", {
           hasToken: !!nextPageToken,
           token: nextPageToken,
           responseKeys: Object.keys(firstPageResponse),
+          totalResults: firstPageItems.length,
+          searchType: isNearbySearch ? "nearby (all pages combined)" : "text (first page only)",
+          isNearbySearch,
         });
 
         // İlk 20 sonucu hemen normalize et ve göster (No-Lag UX)

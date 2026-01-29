@@ -375,6 +375,10 @@ export async function GET(request: NextRequest) {
         console.log("[GET /textsearch] nearbySearchAll result:", {
           resultsCount: data.results.length,
           status: data.status,
+          nextPageToken: data.next_page_token,
+          message: data.results.length > 0 
+            ? `Tüm sayfalar çekildi, ${data.results.length} sonuç bulundu`
+            : "Hiç sonuç bulunamadı",
         });
         return setCorsHeaders(NextResponse.json(data));
       }
