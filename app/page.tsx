@@ -551,6 +551,7 @@ export default function Home() {
       )}
 
       <TopBar
+        anyPanelOpen={isFilterOpen || isProfileOpen || isSearchOpen}
         onMenuToggle={() => setIsFilterOpen(!isFilterOpen)}
         onSearchClick={() => (isSearchOpen ? closeSearch() : openSearch("map"))}
         onLocationClick={() => {

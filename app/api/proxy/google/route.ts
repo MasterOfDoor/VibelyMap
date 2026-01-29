@@ -100,11 +100,19 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
   };
 }
 
-// Google Places API (New) - Nearby Search
-async function nearbySearchNew(type: string, lat: string, lng: string, radius: string, pageToken?: string) {
+// Google Places API (New) - Nearby Search (tek sayfa, max 20)
+// maxResultCount: 1–20 (dokümantasyon). pageSize searchNearby'da kullanılmıyor.
+async function nearbySearchNew(
+  type: string,
+  lat: string,
+  lng: string,
+  radius: string,
+  pageToken?: string
+) {
   const requestBody: any = {
     includedTypes: [type],
-    maxResultCount:1000,
+    maxResultCount: 20,
+    languageCode: "tr",
     locationRestriction: {
       circle: {
         center: {
@@ -125,44 +133,94 @@ async function nearbySearchNew(type: string, lat: string, lng: string, radius: s
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
-      "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.photos,places.websiteUri,places.priceLevel",
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.formattedAddress,places.location,places.types,places.rating,places.userRatingCount,places.photos,places.websiteUri,places.priceLevel",
     },
     body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || `Nearby Search failed: ${response.statusText}`);
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Nearby Search failed: ${response.statusText}`);
   }
 
   const data = await response.json();
-  
-  // Yeni API formatını eski formata çevir (backward compatibility)
-  return {
-    status: data.places?.length > 0 ? "OK" : "ZERO_RESULTS",
-    results: (data.places || []).map((place: any) => ({
-      place_id: place.id,
-      name: place.displayName?.text || "",
-      formatted_address: place.formattedAddress || "",
-      geometry: {
-        location: {
-          lat: place.location?.latitude || 0,
-          lng: place.location?.longitude || 0,
-        },
+  const places = data.places || [];
+
+  const mapPlace = (place: any) => ({
+    place_id: place.id,
+    name: place.displayName?.text || "",
+    formatted_address: place.formattedAddress || "",
+    geometry: {
+      location: {
+        lat: place.location?.latitude || 0,
+        lng: place.location?.longitude || 0,
       },
-      types: place.types || [],
-      rating: place.rating || null,
-      user_ratings_total: place.userRatingCount || 0,
-      photos: (place.photos || []).map((photo: any) => ({
-        photo_reference: photo.name, // Yeni API'de name kullanılıyor
-        name: photo.name,
-        width: photo.widthPx,
-        height: photo.heightPx,
-      })),
-      website: place.websiteUri || "",
-      price_level: place.priceLevel ? ["FREE", "INEXPENSIVE", "MODERATE", "EXPENSIVE", "VERY_EXPENSIVE"].indexOf(place.priceLevel) : null,
+    },
+    types: place.types || [],
+    rating: place.rating ?? null,
+    user_ratings_total: place.userRatingCount || 0,
+    photos: (place.photos || []).map((p: any) => ({
+      photo_reference: p.name,
+      name: p.name,
+      width: p.widthPx,
+      height: p.heightPx,
     })),
+    website: place.websiteUri || "",
+    price_level: place.priceLevel
+      ? ["FREE", "INEXPENSIVE", "MODERATE", "EXPENSIVE", "VERY_EXPENSIVE"].indexOf(place.priceLevel)
+      : null,
+  });
+
+  return {
+    status: places.length > 0 ? "OK" : "ZERO_RESULTS",
+    results: places.map(mapPlace),
     next_page_token: data.nextPageToken || null,
+  };
+}
+
+// Tüm eşleşen nearby sonuçlarını getirir (nextPageToken ile sayfa sayfa).
+// Google, nextPageToken kullanmadan önce kısa bekleme önerir (~1–2 sn).
+const NEARBY_PAGE_DELAY_MS = 1500;
+const NEARBY_MAX_PAGES = 50; // 50 * 20 = en fazla 1000 sonuç
+
+async function nearbySearchAll(
+  type: string,
+  lat: string,
+  lng: string,
+  radius: string
+): Promise<{ status: string; results: any[]; next_page_token: null }> {
+  const allResults: any[] = [];
+  let pageToken: string | undefined;
+  let status = "ZERO_RESULTS";
+
+  for (let page = 0; page < NEARBY_MAX_PAGES; page++) {
+    if (page > 0 && pageToken) {
+      await new Promise((r) => setTimeout(r, NEARBY_PAGE_DELAY_MS));
+    }
+
+    const res = await nearbySearchNew(type, lat, lng, radius, pageToken);
+    status = res.status;
+
+    if (Array.isArray(res.results) && res.results.length > 0) {
+      const seen = new Set<string>();
+      for (const p of res.results) {
+        const id = p.place_id || p.id;
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          allResults.push(p);
+        }
+      }
+    }
+
+    pageToken = res.next_page_token || undefined;
+    if (!pageToken) break;
+  }
+
+  return {
+    status: allResults.length > 0 ? "OK" : status,
+    results: allResults,
+    next_page_token: null,
   };
 }
 
@@ -265,10 +323,9 @@ export async function GET(request: NextRequest) {
         ));
       }
 
-      // Type varsa -> Nearby Search kullan (radius sınırı var)
-      // Kategori aramalarında type kullanılır, radius sınırı olmalı
+      // Type varsa -> Nearby Search (tüm sayfalar birleştirilir, nextPageToken ile)
       if (type) {
-        const data = await nearbySearchNew(type, lat, lng, radius, nextPageToken || undefined);
+        const data = await nearbySearchAll(type, lat, lng, radius);
         return setCorsHeaders(NextResponse.json(data));
       }
 

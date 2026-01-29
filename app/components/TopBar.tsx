@@ -10,6 +10,8 @@ interface TopBarProps {
   onLocationClick: () => void;
   onProfileClick: () => void;
   onEventsClick: () => void;
+  /** Filtre, arama veya profil paneli açıkken top bar sabit kalır (hover ile gizlenmez). */
+  anyPanelOpen?: boolean;
 }
 
 export default function TopBar({
@@ -18,10 +20,12 @@ export default function TopBar({
   onLocationClick,
   onProfileClick,
   onEventsClick,
+  anyPanelOpen = false,
 }: TopBarProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const isVisible = isHovered || anyPanelOpen;
   
   // Cloudinary avatar hook
   const { avatarUrl } = useProfileAvatar(address);
@@ -63,8 +67,8 @@ export default function TopBar({
       aria-label="Üst menü hover alanı"
     >
       <div
-        className={`top-bar ${isHovered ? "top-bar--visible" : "top-bar--hidden"}`}
-        aria-hidden={!isHovered}
+        className={`top-bar ${isVisible ? "top-bar--visible" : "top-bar--hidden"}`}
+        aria-hidden={!isVisible}
       >
       <div className="brand-group">
         <button
