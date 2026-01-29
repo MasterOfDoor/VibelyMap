@@ -135,7 +135,7 @@ export default function SearchOverlay({
   };
 
   const handleSuggestionSelect = async (suggestion: AutocompleteSuggestion) => {
-    setQuery(suggestion.text);
+    // Don't update query state - go directly to search/select
     setSuggestions([]);
     setSelectedIndex(-1);
 
@@ -144,15 +144,17 @@ export default function SearchOverlay({
       try {
         // Place details will be handled by the callback
         onPlaceSelect(suggestion.placeId);
-        onClose();
       } catch (error) {
         console.error("[Autocomplete] Place select error:", error);
       }
     } else {
       // Fallback to regular search
       onSearch(suggestion.text);
-      onClose();
     }
+    
+    // Clear and close after handling
+    setQuery("");
+    onClose();
   };
 
   const handleSearch = () => {
