@@ -33,7 +33,6 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
       },
     } : undefined,
     maxResultCount: 20, // İlk sayfa için makul bir limit (pagination ile devam eder)
-    pageSize: 20, // Pagination için pageSize (Google Places API New standard)
     languageCode: "tr", // Türkçe sonuçlar için
   };
 
@@ -43,6 +42,12 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
   if (pageToken) {
     requestBody.pageToken = pageToken;
   }
+
+  console.log("[textSearchNew] Request:", {
+    query: q,
+    maxResultCount: 20,
+    hasPageToken: !!pageToken,
+  });
 
   // Google Maps'teki liste görünümü için optimize edilmiş FieldMask (sadece gerekli alanlar)
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
@@ -67,8 +72,7 @@ async function textSearchNew(q: string, lat: string, lng: string, radius: string
     hasPlaces: !!data.places,
     placesCount: data.places?.length || 0,
     hasNextPageToken: !!data.nextPageToken,
-    nextPageToken: data.nextPageToken,
-    dataKeys: Object.keys(data),
+    nextPageToken: data.nextPageToken ? `${data.nextPageToken.substring(0, 50)}...` : null,
   });
   
   // Yeni API formatını eski formata çevir (backward compatibility)
@@ -146,6 +150,14 @@ async function nearbySearchNew(
 
   const data = await response.json();
   const places = data.places || [];
+  const nextToken = data.nextPageToken || null;
+
+  console.log("[nearbySearchNew] Page Response:", {
+    type,
+    placesCount: places.length,
+    hasNextToken: !!nextToken,
+    nextPageToken: nextToken ? `${nextToken.substring(0, 50)}...` : null,
+  });
 
   const mapPlace = (place: any) => ({
     place_id: place.id,
@@ -175,7 +187,7 @@ async function nearbySearchNew(
   return {
     status: places.length > 0 ? "OK" : "ZERO_RESULTS",
     results: places.map(mapPlace),
-    next_page_token: data.nextPageToken || null,
+    next_page_token: nextToken,
   };
 }
 
@@ -191,31 +203,54 @@ async function nearbySearchAll(
   radius: string
 ): Promise<{ status: string; results: any[]; next_page_token: null }> {
   const allResults: any[] = [];
+  const seenIds = new Set<string>();
   let pageToken: string | undefined;
   let status = "ZERO_RESULTS";
+  let pageCount = 0;
+
+  console.log("[nearbySearchAll] Starting pagination for type:", type);
 
   for (let page = 0; page < NEARBY_MAX_PAGES; page++) {
-    if (page > 0 && pageToken) {
+    if (page > 0) {
+      console.log(`[nearbySearchAll] Page ${page}: Waiting ${NEARBY_PAGE_DELAY_MS}ms before next request...`);
       await new Promise((r) => setTimeout(r, NEARBY_PAGE_DELAY_MS));
     }
 
     const res = await nearbySearchNew(type, lat, lng, radius, pageToken);
     status = res.status;
+    pageCount++;
+
+    console.log(`[nearbySearchAll] Page ${page} completed:`, {
+      resultsOnPage: res.results.length,
+      hasNextToken: !!res.next_page_token,
+      totalResultsSoFar: allResults.length + res.results.length,
+    });
 
     if (Array.isArray(res.results) && res.results.length > 0) {
-      const seen = new Set<string>();
       for (const p of res.results) {
         const id = p.place_id || p.id;
-        if (id && !seen.has(id)) {
-          seen.add(id);
+        if (id && !seenIds.has(id)) {
+          seenIds.add(id);
           allResults.push(p);
+        } else if (id && seenIds.has(id)) {
+          console.log(`[nearbySearchAll] Duplicate place_id filtered: ${id}`);
         }
       }
     }
 
     pageToken = res.next_page_token || undefined;
-    if (!pageToken) break;
+    if (!pageToken) {
+      console.log("[nearbySearchAll] No more pages (nextPageToken is null/undefined). Stopping pagination.");
+      break;
+    }
   }
+
+  console.log("[nearbySearchAll] Pagination complete:", {
+    totalPages: pageCount,
+    totalResults: allResults.length,
+    uniqueResults: seenIds.size,
+    status,
+  });
 
   return {
     status: allResults.length > 0 ? "OK" : status,
@@ -323,16 +358,37 @@ export async function GET(request: NextRequest) {
         ));
       }
 
+      console.log("[GET /textsearch] Request:", {
+        endpoint: "textsearch",
+        query: q,
+        type,
+        lat,
+        lng,
+        radius,
+        hasNextPageToken: !!nextPageToken,
+      });
+
       // Type varsa -> Nearby Search (tüm sayfalar birleştirilir, nextPageToken ile)
       if (type) {
+        console.log("[GET /textsearch] Using nearbySearchAll for type:", type);
         const data = await nearbySearchAll(type, lat, lng, radius);
+        console.log("[GET /textsearch] nearbySearchAll result:", {
+          resultsCount: data.results.length,
+          status: data.status,
+        });
         return setCorsHeaders(NextResponse.json(data));
       }
 
       // Query varsa ve type yoksa -> Text Search kullan (radius sınırı yok)
       // Text search için kullanıcı belirli bir mekan adı arıyorsa nerede olursa olsun bulunmalı
       if (q.trim()) {
+        console.log("[GET /textsearch] Using textSearchNew for query:", q);
         const data = await textSearchNew(q, lat, lng, radius, nextPageToken || undefined);
+        console.log("[GET /textsearch] textSearchNew result:", {
+          resultsCount: data.results.length,
+          status: data.status,
+          hasNextPageToken: !!data.next_page_token,
+        });
         return setCorsHeaders(NextResponse.json(data));
       }
 
