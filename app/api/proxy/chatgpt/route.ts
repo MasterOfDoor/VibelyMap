@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GPT5_API_KEY = process.env.GPT5_API_KEY || process.env.OPENAI_API_KEY || "";
+const GEMINI_2_API_KEY = process.env.GEMINI_2_API_KEY || process.env.OPENAI_API_KEY || "";
 
 // CORS headers
 function setCorsHeaders(response: NextResponse) {
@@ -16,9 +16,9 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
-  if (!GPT5_API_KEY) {
+  if (!GEMINI_2_API_KEY) {
     return setCorsHeaders(
-      NextResponse.json({ error: "missing_gpt_key" }, { status: 500 })
+      NextResponse.json({ error: "missing_gemini_2_api_key" }, { status: 500 })
     );
   }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${GPT5_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_2_API_KEY}`,
       },
       body: JSON.stringify(openaiRequest),
     });
