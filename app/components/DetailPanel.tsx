@@ -1138,7 +1138,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                 </div>
               </div>
 
-              {/* Kategori */}
+              {/* Category */}
               <div className="rating-criterion" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
                 <label className="rating-label">
                   <span>📍 Category</span>

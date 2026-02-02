@@ -5,34 +5,27 @@ import { FilterState } from "../components/FilterPanel";
 import { Place } from "../components/DetailPanel";
 
 const optionCategory: { [key: string]: string } = {
-  Los: "Isiklandirma",
-  Dogal: "Isiklandirma",
-  Canli: "Isiklandirma",
-  Tatli: "Yemek",
-  Kahvalti: "Yemek",
-  Vegan: "Yemek",
-  Atistirmalik: "Yemek",
-  "Masada priz": "Priz",
-  "Priz Az": "Priz",
-  "Priz Orta": "Priz",
-  "Priz Var": "Priz",
-  Uygun: "Fiyat",
-  Orta: "Fiyat",
-  Pahali: "Fiyat",
-  Retro: "Ambiyans",
-  Modern: "Ambiyans",
-  "Koltuk var": "Oturma",
-  "Koltuk yok": "Oturma",
-  "Deniz goruyor": "Deniz",
-  "Deniz gormuyor": "Deniz",
-  "Sigara icilebilir": "Sigara",
-  "Kapali alanda sigara icilebilir": "Sigara",
-  Kafe: "Kategori",
-  Restoran: "Kategori",
-  Bar: "Kategori",
-  "Cocktail Lounge": "Kategori",
-  Meyhane: "Kategori",
-  "Shot Bar": "Kategori",
+  Dim: "Lighting",
+  Natural: "Lighting",
+  Bright: "Lighting",
+  "Table Outlet": "Outlets",
+  "Few Outlets": "Outlets",
+  "Some Outlets": "Outlets",
+  Available: "Outlets",
+  Retro: "Ambiance",
+  Modern: "Ambiance",
+  "Has Armchairs": "Seating",
+  "No Armchairs": "Seating",
+  "Sea View": "Sea",
+  "No Sea View": "Sea",
+  "Smoking Allowed": "Smoking",
+  "Indoor Smoking Allowed": "Smoking",
+  Cafe: "Category",
+  Restaurant: "Category",
+  Bar: "Category",
+  "Cocktail Lounge": "Category",
+  Tavern: "Category",
+  "Shot Bar": "Category",
 };
 
 function findOptionCategory(label: string): string | null {
@@ -46,23 +39,23 @@ function findOptionCategory(label: string): string | null {
 }
 
 const CATEGORY_KEYWORDS: { [key: string]: string[] } = {
-  Kafe: ["cafe", "coffee", "kahve", "espresso", "coffeeshop", "coffee shop"],
-  Restoran: ["restaurant", "restoran", "diner", "bistro", "lokanta", "kebap", "kebab", "ocakbasi", "canteen", "grill", "kokoreç", "kokorec", "ızgara", "izgara"],
+  Cafe: ["cafe", "coffee", "kahve", "espresso", "coffeeshop", "coffee shop", "kafe"],
+  Restaurant: ["restaurant", "restoran", "diner", "bistro", "lokanta", "kebap", "kebab", "ocakbasi", "canteen", "grill", "kokoreç", "kokorec", "ızgara", "izgara"],
   Bar: ["bar", "pub", "bistro bar", "cocktail", "wine", "gece hayatı", "nightlife"],
   "Cocktail Lounge": ["cocktail", "lounge", "mixology", "kokteyl"],
-  Meyhane: ["meyhane", "tavern", "rakı", "raki"],
+  Tavern: ["meyhane", "tavern", "rakı", "raki"],
   "Shot Bar": ["shot bar", "shots", "shotlar"],
 };
 
-// Alkol servis edilen kategoriler
-const ALCOHOL_CATEGORIES = ["Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"];
+// Alcohol serving categories
+const ALCOHOL_CATEGORIES = ["Bar", "Cocktail Lounge", "Tavern", "Shot Bar"];
 // Alkol kategorilerinde kesinlikle olmaması gereken yiyecek odaklı anahtar kelimeler
 const FOOD_EXCLUSION_KEYWORDS = ["kokoreç", "kokorec", "grill", "ızgara", "izgara", "pide", "lahmacun"];
 
 function matchesCategoryOption(place: Place, option: string): boolean {
   const lowOpt = (option || "").toLowerCase();
   const keywords = (CATEGORY_KEYWORDS[option] || []).map((k) => k.toLowerCase());
-  const placeCats = (place.subOptions?.Kategori || []).map((c) => c.toLowerCase());
+  const placeCats = (place.subOptions?.Category || place.subOptions?.Kategori || []).map((c: string) => c.toLowerCase());
   const placeTags = (place.tags || []).map((t) => t.toLowerCase());
   const placeType = (place.type || "").toLowerCase();
   const placeName = (place.name || "").toLowerCase();
@@ -101,80 +94,68 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
 
   if (!hasFilters) return true;
 
-  // Check range filters (Isiklandirma and Oturma)
+  // Check range filters (Lighting, Seating, Outlets)
   if (ranges) {
-    // Işıklandırma filtresi (1-5)
-    if (ranges.Isiklandirma !== undefined) {
-      const placeIsikTag = (place.tags || []).find((tag) => 
-        tag.toLowerCase().includes("ışıklandırma") || tag.toLowerCase().includes("isiklandirma")
+    // Lighting filter (1-5)
+    if (ranges.Lighting !== undefined) {
+      const placeLightingTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("ışıklandırma") || tag.toLowerCase().includes("isiklandirma") || tag.toLowerCase().includes("lighting")
       );
-      if (placeIsikTag) {
-        // Etiketten sayıyı çıkar: "Işıklandırma 3" -> 3
-        const match = placeIsikTag.match(/\d+/);
+      if (placeLightingTag) {
+        const match = placeLightingTag.match(/\d+/);
         if (match) {
-          const placeIsikValue = Number(match[0]);
-          // Kullanıcının seçtiği değerden küçük veya eşit olmalı (daha loş = daha yüksek sayı)
-          // Örnek: Kullanıcı 3 seçtiyse, mekan 3, 4 veya 5 olabilir (daha loş veya eşit)
-          if (placeIsikValue < ranges.Isiklandirma) return false;
+          const placeLightingValue = Number(match[0]);
+          if (placeLightingValue < ranges.Lighting) return false;
         }
       }
-      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
     }
     
-    // Koltuk filtresi (0-3)
-    if (ranges.Oturma !== undefined) {
-      const placeKoltukTag = (place.tags || []).find((tag) => 
-        tag.toLowerCase().includes("koltuk")
+    // Seating filter (0-3)
+    if (ranges.Seating !== undefined) {
+      const placeSeatingTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("koltuk") || tag.toLowerCase().includes("armchair") || tag.toLowerCase().includes("seating")
       );
-      if (placeKoltukTag) {
-        // Etiketten sayıyı çıkar veya metin kontrolü yap
-        let placeKoltukValue = -1;
-        const lowerTag = placeKoltukTag.toLowerCase();
-        if (lowerTag.includes("yok")) placeKoltukValue = 0;
-        else if (lowerTag.includes("az")) placeKoltukValue = 1;
-        else if (lowerTag.includes("orta")) placeKoltukValue = 2;
-        else if (lowerTag.includes("var") && !lowerTag.includes("az") && !lowerTag.includes("orta")) placeKoltukValue = 3;
+      if (placeSeatingTag) {
+        let placeSeatingValue = -1;
+        const lowerTag = placeSeatingTag.toLowerCase();
+        if (lowerTag.includes("yok") || lowerTag.includes("no")) placeSeatingValue = 0;
+        else if (lowerTag.includes("az") || lowerTag.includes("few")) placeSeatingValue = 1;
+        else if (lowerTag.includes("orta") || lowerTag.includes("medium")) placeSeatingValue = 2;
+        else if ((lowerTag.includes("var") || lowerTag.includes("has")) && !lowerTag.includes("az") && !lowerTag.includes("orta")) placeSeatingValue = 3;
         
-        const match = placeKoltukTag.match(/\d+/);
+        const match = placeSeatingTag.match(/\d+/);
         if (match) {
-          placeKoltukValue = Number(match[0]);
+          placeSeatingValue = Number(match[0]);
         }
         
-        if (placeKoltukValue >= 0) {
-          // Kullanıcının seçtiği değerden küçük veya eşit olmalı
-          // Örnek: Kullanıcı 2 seçtiyse, mekan 2 veya 3 olabilir (daha fazla veya eşit)
-          if (placeKoltukValue < ranges.Oturma) return false;
+        if (placeSeatingValue >= 0) {
+          if (placeSeatingValue < ranges.Seating) return false;
         }
       }
-      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
     }
 
-    // Priz filtresi (1-4)
-    if (ranges.Priz !== undefined && ranges.Priz > 0) {
-      const placePrizTag = (place.tags || []).find((tag) => 
-        tag.toLowerCase().includes("priz")
+    // Outlets filter (1-4)
+    if (ranges.Outlets !== undefined && ranges.Outlets > 0) {
+      const placeOutletsTag = (place.tags || []).find((tag) => 
+        tag.toLowerCase().includes("priz") || tag.toLowerCase().includes("outlet")
       );
-      if (placePrizTag) {
-        // Etiketten sayıyı çıkar veya metin kontrolü yap
-        let placePrizValue = -1;
-        const lowerTag = placePrizTag.toLowerCase();
-        if (lowerTag.includes("az")) placePrizValue = 1;
-        else if (lowerTag.includes("orta")) placePrizValue = 2;
-        else if (lowerTag.includes("var") && !lowerTag.includes("az") && !lowerTag.includes("orta") && !lowerTag.includes("masada")) placePrizValue = 3;
-        else if (lowerTag.includes("masada")) placePrizValue = 4;
+      if (placeOutletsTag) {
+        let placeOutletsValue = -1;
+        const lowerTag = placeOutletsTag.toLowerCase();
+        if (lowerTag.includes("az") || lowerTag.includes("few")) placeOutletsValue = 1;
+        else if (lowerTag.includes("orta") || lowerTag.includes("some") || lowerTag.includes("medium")) placeOutletsValue = 2;
+        else if ((lowerTag.includes("var") || lowerTag.includes("available")) && !lowerTag.includes("az") && !lowerTag.includes("orta") && !lowerTag.includes("masada") && !lowerTag.includes("table")) placeOutletsValue = 3;
+        else if (lowerTag.includes("masada") || lowerTag.includes("table")) placeOutletsValue = 4;
         
-        const match = placePrizTag.match(/\d+/);
+        const match = placeOutletsTag.match(/\d+/);
         if (match) {
-          placePrizValue = Number(match[0]);
+          placeOutletsValue = Number(match[0]);
         }
         
-        if (placePrizValue >= 1) {
-          // Kullanıcının seçtiği değerden küçük veya eşit olmalı
-          // Örnek: Kullanıcı 2 seçtiyse, mekan 2, 3 veya 4 olabilir (daha fazla veya eşit)
-          if (placePrizValue < ranges.Priz) return false;
+        if (placeOutletsValue >= 1) {
+          if (placeOutletsValue < ranges.Outlets) return false;
         }
       }
-      // Etiket yoksa, filtreleme yapma (veri eksik - kabul et)
     }
   }
 
@@ -187,13 +168,13 @@ function matchesFilters(place: Place, filters: FilterState): boolean {
   for (const [criterion, selectedOptions] of Object.entries(sub)) {
     if (selectedOptions.length === 0) continue;
 
-    // Isiklandirma, Oturma and Priz are handled by ranges, skip here
-    if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
+    // Lighting, Seating and Outlets are handled by ranges, skip here
+    if (criterion === "Lighting" || criterion === "Seating" || criterion === "Outlets") {
       continue;
     }
 
-    // Special handling for Kategori
-    if (criterion === "Kategori") {
+    // Special handling for Category
+    if (criterion === "Category") {
       const hasMatchingCategory = selectedOptions.some((option) =>
         matchesCategoryOption(place, option)
       );

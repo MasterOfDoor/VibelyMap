@@ -235,7 +235,7 @@ export default function Home() {
             photos: photos.length > 0 ? photos : undefined,
             tags: result.types || [],
             subOptions: { 
-              Kategori: result.types?.map((t: string) => t.replace(/_/g, " ")) || [] 
+              Category: result.types?.map((t: string) => t.replace(/_/g, " ")) || [] 
             },
           };
 
@@ -259,15 +259,15 @@ export default function Home() {
 
   const handleApplyFilters = useCallback(
     async (filters: FilterState) => {
-      // Kategori kontrolü
-      const kategoriFilters = filters.sub.Kategori || [];
-      if (kategoriFilters.length === 0) {
-        alert("En az bir kategori seçmelisiniz.");
+      // Category check
+      const categoryFilters = filters.sub.Category || [];
+      if (categoryFilters.length === 0) {
+        alert("You must select at least one category.");
         return;
       }
 
-      // Kullanıcı konumunu al
-      let userLocation = { lat: 41.015137, lng: 28.97953 }; // Varsayılan İstanbul
+      // Get user location
+      let userLocation = { lat: 41.015137, lng: 28.97953 }; // Default Istanbul
       if ((window as any).getUserLocation) {
         const loc = (window as any).getUserLocation();
         if (loc) {
@@ -287,14 +287,14 @@ export default function Home() {
             lng: position.coords.longitude,
           };
         } catch (err) {
-          console.warn("Konum alınamadı, varsayılan konum kullanılıyor:", err);
+          console.warn("Could not get location, using default:", err);
         }
       }
 
-      // Kategori filtrelerini al
-      const kategoriOptions = filters.sub.Kategori || [];
-      if (kategoriOptions.length === 0) {
-        alert("En az bir kategori seçmelisiniz.");
+      // Get category filters
+      const categoryOptions = filters.sub.Category || [];
+      if (categoryOptions.length === 0) {
+        alert("You must select at least one category.");
         return;
       }
 
@@ -303,14 +303,14 @@ export default function Home() {
       applyFilters(filters);
 
       try {
-        // 1. Her kategori için ayrı ayrı arama yap ve sonuçları birleştir
+        // 1. Search for each category and combine results
         const allResults: Place[] = [];
         const seenIds = new Set<string>();
 
-        console.log("[handleApplyFilters] Starting searches for categories:", kategoriOptions);
+        console.log("[handleApplyFilters] Starting searches for categories:", categoryOptions);
 
-        for (const kategori of kategoriOptions) {
-          // Her kategori için birden fazla arama parametresi tanımla
+        for (const category of categoryOptions) {
+          // Define multiple search parameters for each category
           type SearchParam = {
             query: string;
             type?: string;
@@ -318,16 +318,14 @@ export default function Home() {
 
           let searchParams: SearchParam[] = [];
           
-          if (kategori === "Kafe") {
-            // Kafe için ana arama + ekstra parametreler
+          if (category === "Cafe") {
             searchParams = [
               { query: "cafe", type: "cafe" },
               { query: "coffee shop", type: "cafe" },
               { query: "kahve", type: "cafe" },
               { query: "dog_cafe", type: "dog_cafe" },
             ];
-          } else if (kategori === "Restoran") {
-            // Restoran için ana arama + ekstra parametreler
+          } else if (category === "Restaurant") {
             searchParams = [
               { query: "restaurant", type: "restaurant" },
               { query: "restoran", type: "restaurant" },
@@ -388,44 +386,43 @@ export default function Home() {
               { query: "vegetarian_restaurant", type: "vegetarian_restaurant" },
               { query: "vietnamese_restaurant", type: "vietnamese_restaurant" },
             ];
-          } else if (kategori === "Bar") {
+          } else if (category === "Bar") {
             searchParams = [
               { query: "bar", type: "bar" },
               { query: "wine_bar", type: "wine_bar" },
               { query: "pub", type: "pub" },
             ];
-          } else if (kategori === "Cocktail Lounge") {
+          } else if (category === "Cocktail Lounge") {
             searchParams = [
               { query: "cocktail lounge", type: "bar" },
             ];
-          } else if (kategori === "Meyhane") {
+          } else if (category === "Tavern") {
             searchParams = [
               { query: "meyhane", type: "bar" },
+              { query: "tavern", type: "bar" },
             ];
-          } else if (kategori === "Shot Bar") {
+          } else if (category === "Shot Bar") {
             searchParams = [
               { query: "shot bar", type: "bar" },
             ];
           } else {
             searchParams = [
-              { query: kategori.toLowerCase(), type: kategori.toLowerCase() },
+              { query: category.toLowerCase(), type: category.toLowerCase() },
             ];
           }
 
-          // Her parametre için ayrı ayrı arama yap ve sonuçları birleştir
-          // Kategori aramalarında sadece type kullanılmalı, query gönderilmemeli (nearby search için)
+          // Search for each parameter and combine results
           for (const searchParam of searchParams) {
-            // Kategori aramalarında query gönderme - sadece type ile nearby search kullan
             const categoryResults = await loadPlaces("", {
               lat: userLocation.lat,
               lng: userLocation.lng,
-              radius: 1500, // Google Maps gibi optimize edilmiş sabit radius (kullanıcı seçemez)
-              type: searchParam.type, // Yeni API için type parametresi - nearby search kullanılacak
+              radius: 1500,
+              type: searchParam.type,
             });
 
             console.log(`[handleApplyFilters] Category search: "${searchParam.type}", Results: ${categoryResults.length}`);
 
-            // Duplicate'leri filtrele ve ekle
+            // Filter duplicates and add
             categoryResults.forEach((place) => {
               if (!seenIds.has(place.id)) {
                 seenIds.add(place.id);
@@ -437,15 +434,15 @@ export default function Home() {
 
         const results = allResults;
 
-        // 2. Diğer filtreler var mı kontrol et (Kategori dışında)
+        // 2. Check if there are other filters (besides Category)
         const otherFilters = Object.keys(filters.sub).filter(
-          (key) => key !== "Kategori" && filters.sub[key].length > 0
+          (key) => key !== "Category" && filters.sub[key].length > 0
         );
         
         console.log("[handleApplyFilters] Category searches completed:", {
           totalResults: results.length,
           uniqueResults: seenIds.size,
-          categories: kategoriOptions,
+          categories: categoryOptions,
         });
         
         // Range filtreleri var mı kontrol et (default değerler dikkate alınmaz)

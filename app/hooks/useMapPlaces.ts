@@ -90,7 +90,7 @@ export function useMapPlaces() {
       photos: photos.length > 0 ? photos : undefined, // Tüm fotoğrafları ekle
       tags: Array.from(tagSet).slice(0, 5),
       features: [],
-      subOptions: { Kategori: mappedCategories },
+      subOptions: { Category: mappedCategories },
     };
   }, []);
 

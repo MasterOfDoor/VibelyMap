@@ -151,7 +151,12 @@ function MapWithLoader({
       mapInstance.setOptions({ styles: [] });
     }
     
-    // Get user location - map hazır olduktan sonra
+    // Force a resize to ensure map renders properly
+    setTimeout(() => {
+      google.maps.event.trigger(mapInstance, "resize");
+    }, 100);
+    
+    // Get user location - map hazır olduktan sonra (non-blocking)
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -162,6 +167,12 @@ function MapWithLoader({
         },
         (error) => {
           console.warn("Geolocation error:", error);
+          // Geolocation başarısız olsa bile harita default konumda görünsün
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000, // 5 dakika cache
         }
       );
     }
@@ -384,9 +395,9 @@ function MapWithLoader({
               <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
             </div>
             <span className="text-lg font-semibold text-gray-800 tracking-wide">
-              🤖 AI analizi sürüyor
+              🤖 AI Analysis in Progress
             </span>
-            <p className="text-sm text-gray-500">Mekanlar analiz ediliyor...</p>
+            <p className="text-sm text-gray-500">Analyzing places...</p>
           </div>
         </div>
       )}
@@ -406,20 +417,25 @@ function MapComponent({
   isBatchAnalyzing = false,
 }: MapComponentProps) {
   const [apiKey, setApiKey] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
 
-  // API key'i yükle - component mount olduğunda hemen yükle (optimize edilmiş)
+  // API key'i yükle - component mount olduğunda hemen yükle
   useEffect(() => {
-    // Cache'den kontrol et (localStorage)
-    const cachedKey = typeof window !== "undefined" ? localStorage.getItem("maps_api_key") : null;
-    if (cachedKey) {
-      setApiKey(cachedKey);
-    }
-
-    // API'den yükle (cache miss veya ilk yükleme)
     const loadApiKey = async () => {
+      setIsLoading(true);
+      
+      // Cache'den kontrol et (localStorage)
+      const cachedKey = typeof window !== "undefined" ? localStorage.getItem("maps_api_key") : null;
+      
+      if (cachedKey) {
+        setApiKey(cachedKey);
+        setIsLoading(false);
+      }
+
+      // API'den yükle (her zaman taze key al)
       try {
         const response = await fetch("/api/maps-key", {
-          cache: "force-cache", // Browser cache kullan
+          cache: "no-store", // Her zaman taze key al
         });
         if (response.ok) {
           const data = await response.json();
@@ -433,17 +449,16 @@ function MapComponent({
         }
       } catch (error) {
         console.error("Failed to load Google Maps API key:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    // Cache yoksa veya geçersizse API'den yükle
-    if (!cachedKey) {
-      loadApiKey();
-    }
+    loadApiKey();
   }, []);
 
   // API key yüklenene kadar bekle
-  if (!apiKey) {
+  if (!apiKey || isLoading) {
     return (
       <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
         <div className="text-center">

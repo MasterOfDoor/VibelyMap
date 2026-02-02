@@ -1,14 +1,14 @@
-// Filtreleme helper fonksiyonları (eski script.js'den)
+// Filter helper functions
 
 export const CATEGORY_SEARCH_TERMS: { [key: string]: string } = {
-  Kafe: "cafe coffee espresso kahve",
-  Restoran: "restaurant lokanta kebap kebab",
+  Cafe: "cafe coffee espresso kahve",
+  Restaurant: "restaurant lokanta kebap kebab",
   Bar: "bar pub cocktail wine",
 };
 
 export const GOOGLE_TYPE_MAP: { [key: string]: string } = {
-  Kafe: "cafe",
-  Restoran: "restaurant",
+  Cafe: "cafe",
+  Restaurant: "restaurant",
   Bar: "bar",
 };
 
@@ -20,31 +20,26 @@ export interface FilterState {
 }
 
 export function buildQueryFromFilters(main: string[], sub: { [key: string]: string[] }): string {
-  // Google Places'e sadece kategori sorulacak
-  // Diğer filtreler (ışıklandırma, fiyat, ambiyans vb.) AI analiziyle gelecek
-  // Query'yi kısa tutmak için sadece kategori isimlerini kullanıyoruz
+  // Only category will be queried to Google Places
+  // Other filters (lighting, price, ambiance etc.) will come from AI analysis
   const terms = new Set<string>();
   
-  // Sadece kategori filtrelerini ekle - sadece kategori ismini kullan (uzun search terms yerine)
-  const kategoriOptions = sub.Kategori || [];
-  kategoriOptions.forEach((cat) => {
-    // Sadece kategori ismini kullan, uzun search terms yerine
-    // Google Places API daha iyi sonuç veriyor
-    if (cat === "Kafe") {
+  // Add only category filters
+  const categoryOptions = sub.Category || [];
+  categoryOptions.forEach((cat) => {
+    if (cat === "Cafe") {
       terms.add("cafe");
-    } else if (cat === "Restoran") {
+    } else if (cat === "Restaurant") {
       terms.add("restaurant");
     } else if (cat === "Bar") {
       terms.add("bar");
     } else {
-      // Fallback: kategori ismini küçük harfe çevir
+      // Fallback: convert category name to lowercase
       terms.add(cat.toLowerCase());
     }
   });
   
-  // Birden fazla kategori varsa, sadece ilkini kullan (Google API için daha iyi)
+  // If multiple categories, use only the first one (better for Google API)
   const queryArray = Array.from(terms).filter(Boolean);
   return queryArray.length > 0 ? queryArray[0] : "";
 }
-
-
