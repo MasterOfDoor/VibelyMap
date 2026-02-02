@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { useEffect, useRef, useState } from "react";
 import { useProfileAvatar } from "../hooks/useProfileAvatar";
 import { useUserProfile } from "../hooks/useUserProfile";
+import { useUserReviews } from "../hooks/useUserReviews";
 import { useTheme } from "../contexts/ThemeContext";
 
 interface ProfilePanelProps {
@@ -24,6 +25,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   
   // User profile hook (username)
   const { profile, isLoading: isProfileLoading } = useUserProfile(address);
+  
+  // User reviews hook
+  const { reviews: userReviews, reviewCount, isLoading: isReviewsLoading } = useUserReviews(address);
   
   // Theme hook
   const { theme, toggleTheme, isDark } = useTheme();
@@ -282,7 +286,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               <span>Followers</span>
             </button>
             <div className="stat review-centered">
-              <strong id="reviewCount">0</strong>
+              <strong id="reviewCount">{reviewCount}</strong>
               <span>Reviews</span>
             </div>
           </div>
@@ -412,10 +416,33 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       <div className="profile-reviews">
         <div className="reviews-header">
           <h3>User Reviews</h3>
-          <p className="muted-text tiny">Latest reviews at the bottom.</p>
+          <p className="muted-text tiny">
+            {isReviewsLoading ? "Loading..." : `${reviewCount} review${reviewCount !== 1 ? "s" : ""}`}
+          </p>
         </div>
-        <div id="myReviews" className="review-gallery empty">
-          No reviews.
+        <div id="myReviews" className={`review-gallery ${userReviews.length === 0 ? "empty" : ""}`}>
+          {isReviewsLoading ? (
+            <div className="review-loading">Loading reviews...</div>
+          ) : userReviews.length === 0 ? (
+            "No reviews yet."
+          ) : (
+            userReviews.map((review) => (
+              <div key={review.id} className="review-card">
+                <div className="review-header">
+                  <div className="review-rating">
+                    {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                  </div>
+                  <span className="review-date">
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <p className="review-comment">{review.comment}</p>
+                <p className="review-place-id muted-text tiny">
+                  Place: {review.place_id.slice(0, 20)}...
+                </p>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>

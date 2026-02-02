@@ -49,25 +49,33 @@ export async function OPTIONS() {
   return setCorsHeaders(response);
 }
 
-// GET: Get reviews by placeId
+// GET: Get reviews by placeId OR by reviewerAddress
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const placeId = searchParams.get("placeId");
+    const reviewerAddress = searchParams.get("reviewerAddress");
 
-    if (!placeId) {
+    if (!placeId && !reviewerAddress) {
       return setCorsHeaders(
-        NextResponse.json({ error: "placeId is required" }, { status: 400 })
+        NextResponse.json({ error: "placeId or reviewerAddress is required" }, { status: 400 })
       );
     }
 
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from("reviews")
-      .select("*")
-      .eq("place_id", placeId)
-      .order("created_at", { ascending: false });
+    let query = supabase.from("reviews").select("*");
+
+    if (placeId) {
+      // Get reviews for a specific place
+      query = query.eq("place_id", placeId);
+    } else if (reviewerAddress) {
+      // Get reviews by a specific user (for profile)
+      const normalizedAddress = reviewerAddress.toLowerCase();
+      query = query.eq("reviewer_address", normalizedAddress);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error) {
       console.error("[Reviews API] Supabase error:", error);
