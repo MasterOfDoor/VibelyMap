@@ -1,5 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/app/utils/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+// Create Supabase client directly in API route for better error handling
+function getSupabaseClient() {
+  // Try all possible env variable names
+  const supabaseUrl = 
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 
+    process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL ||
+    process.env.comments_SUPABASE_URL;
+
+  const supabaseAnonKey = 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+    process.env.NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY ||
+    process.env.comments_SUPABASE_ANON_KEY ||
+    process.env.comments_SUPABASE_PUBLISHABLE_KEY;
+
+  console.log("[Reviews API] Environment check:", {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey,
+    urlPrefix: supabaseUrl?.substring(0, 30) || "missing",
+    // List all env vars for debugging
+    envVars: {
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_comments_CommentSUPABASE_URL: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL,
+      comments_SUPABASE_URL: !!process.env.comments_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY,
+      comments_SUPABASE_ANON_KEY: !!process.env.comments_SUPABASE_ANON_KEY,
+      comments_SUPABASE_PUBLISHABLE_KEY: !!process.env.comments_SUPABASE_PUBLISHABLE_KEY,
+    }
+  });
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(`Supabase credentials missing. URL: ${!!supabaseUrl}, Key: ${!!supabaseAnonKey}`);
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
 
 /*
   Supabase Table Schema - Run this SQL in Supabase SQL Editor:
@@ -43,6 +80,8 @@ export async function GET(request: NextRequest) {
         NextResponse.json({ error: "placeId is required" }, { status: 400 })
       );
     }
+
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("reviews")
@@ -96,6 +135,8 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedAddress = reviewerAddress.toLowerCase();
+
+    const supabase = getSupabaseClient();
 
     // Insert the review
     const { data: review, error } = await supabase
