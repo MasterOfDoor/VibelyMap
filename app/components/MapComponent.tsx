@@ -418,11 +418,14 @@ function MapComponent({
 }: MapComponentProps) {
   const [apiKey, setApiKey] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // API key'i yükle - component mount olduğunda hemen yükle
   useEffect(() => {
     const loadApiKey = async () => {
       setIsLoading(true);
+      setLoadError(null);
       
       // Cache'den kontrol et (localStorage)
       const cachedKey = typeof window !== "undefined" ? localStorage.getItem("maps_api_key") : null;
@@ -430,12 +433,15 @@ function MapComponent({
       if (cachedKey) {
         setApiKey(cachedKey);
         setIsLoading(false);
+        console.log("[MapComponent] API key loaded from cache");
+        return;
       }
 
-      // API'den yükle (her zaman taze key al)
+      // API'den yükle
       try {
+        console.log("[MapComponent] Fetching API key from server...");
         const response = await fetch("/api/maps-key", {
-          cache: "no-store", // Her zaman taze key al
+          cache: "no-store",
         });
         if (response.ok) {
           const data = await response.json();
@@ -445,16 +451,28 @@ function MapComponent({
             if (typeof window !== "undefined") {
               localStorage.setItem("maps_api_key", data.apiKey);
             }
+            console.log("[MapComponent] API key loaded successfully");
+          } else {
+            setLoadError("API key not found in response");
           }
+        } else {
+          setLoadError(`Server error: ${response.status}`);
         }
-      } catch (error) {
-        console.error("Failed to load Google Maps API key:", error);
+      } catch (error: any) {
+        console.error("[MapComponent] Failed to load API key:", error);
+        setLoadError(error.message || "Failed to load map");
       } finally {
         setIsLoading(false);
       }
     };
     
     loadApiKey();
+  }, [retryCount]);
+
+  // Retry function
+  const handleRetry = useCallback(() => {
+    localStorage.removeItem("maps_api_key");
+    setRetryCount((prev) => prev + 1);
   }, []);
 
   // API key yüklenene kadar bekle
@@ -463,7 +481,18 @@ function MapComponent({
       <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-gray-100" style={{ zIndex: 1 }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#d4a657] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading map...</p>
+          <p className="text-gray-600">{loadError ? "Map loading failed" : "Loading map..."}</p>
+          {loadError && (
+            <div className="mt-4">
+              <p className="text-red-500 text-sm mb-2">{loadError}</p>
+              <button
+                onClick={handleRetry}
+                className="px-4 py-2 bg-[#d4a657] text-white rounded-lg hover:bg-[#b8914a] transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

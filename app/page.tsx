@@ -37,7 +37,20 @@ const MapComponent = dynamic(() => import("./components/MapComponent"), {
 
 export default function Home() {
   const { address, isConnected } = useAccount();
-  
+  const [mapKey, setMapKey] = useState(0);
+
+  // Wallet bağlandığında haritayı yeniden yükle (otomatik trigger)
+  useEffect(() => {
+    if (isConnected && address) {
+      // Wallet bağlandığında haritayı yeniden render et
+      const timer = setTimeout(() => {
+        setMapKey((prev) => prev + 1);
+        console.log("[Map] Auto-reload triggered after wallet connect");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, address]);
+
   // Tag migration'ı bir kere çalıştır (sadece client-side)
   useEffect(() => {
     const runTagMigration = async () => {
@@ -581,6 +594,7 @@ export default function Home() {
       />
 
       <MapComponent
+        key={`map-${mapKey}`}
         places={filteredPlaces}
         selectedPlace={selectedPlace}
         onPlaceClick={handlePlaceClick}
