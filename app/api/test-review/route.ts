@@ -3,19 +3,20 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function GET() {
   try {
-    const supabaseUrl = 
-      process.env.NEXT_PUBLIC_SUPABASE_URL || 
-      process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL ||
-      process.env.comments_SUPABASE_URL;
-
+    // Comments Supabase env variable names
+    const supabaseUrl = process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL;
     const supabaseAnonKey = 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
       process.env.NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_comments_CommentSUPABASE_PUBLISHABLE_KEY ||
       process.env.comments_SUPABASE_ANON_KEY ||
       process.env.comments_SUPABASE_PUBLISHABLE_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ error: "Missing credentials" }, { status: 500 });
+      return NextResponse.json({ 
+        error: "Missing credentials",
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseAnonKey,
+      }, { status: 500 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
