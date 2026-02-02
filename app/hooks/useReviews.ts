@@ -52,11 +52,13 @@ export function useReviews(placeId: string | null) {
     try {
       const response = await fetch(`/api/reviews?placeId=${encodeURIComponent(placeId)}`);
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch reviews: ${response.statusText}`);
+        console.error("[useReviews] Server error details:", data);
+        throw new Error(`Failed to fetch reviews: ${JSON.stringify(data)}`);
       }
 
-      const data = await response.json();
       setReviews(data.reviews || []);
     } catch (error) {
       console.error("[useReviews] Failed to fetch reviews:", error);

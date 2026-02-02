@@ -97,8 +97,24 @@ export async function GET(request: NextRequest) {
     return setCorsHeaders(NextResponse.json({ reviews: data || [] }));
   } catch (error: any) {
     console.error("[Reviews API] GET error:", error);
+    
+    // Return detailed error for debugging
+    const debugInfo = {
+      error: "Failed to fetch reviews",
+      detail: error.message,
+      envCheck: {
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_comments_CommentSUPABASE_URL: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL,
+        comments_SUPABASE_URL: !!process.env.comments_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY,
+        comments_SUPABASE_ANON_KEY: !!process.env.comments_SUPABASE_ANON_KEY,
+        comments_SUPABASE_PUBLISHABLE_KEY: !!process.env.comments_SUPABASE_PUBLISHABLE_KEY,
+      }
+    };
+    
     return setCorsHeaders(
-      NextResponse.json({ error: "Failed to fetch reviews", detail: error.message }, { status: 500 })
+      NextResponse.json(debugInfo, { status: 500 })
     );
   }
 }
@@ -159,8 +175,24 @@ export async function POST(request: NextRequest) {
     return setCorsHeaders(NextResponse.json({ success: true, review }));
   } catch (error: any) {
     console.error("[Reviews API] POST error:", error);
+    
+    // Return detailed error for debugging
+    const debugInfo = {
+      error: "Failed to create review",
+      detail: error.message,
+      envCheck: {
+        NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_comments_CommentSUPABASE_URL: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_URL,
+        comments_SUPABASE_URL: !!process.env.comments_SUPABASE_URL,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY: !!process.env.NEXT_PUBLIC_comments_CommentSUPABASE_ANON_KEY,
+        comments_SUPABASE_ANON_KEY: !!process.env.comments_SUPABASE_ANON_KEY,
+        comments_SUPABASE_PUBLISHABLE_KEY: !!process.env.comments_SUPABASE_PUBLISHABLE_KEY,
+      }
+    };
+    
     return setCorsHeaders(
-      NextResponse.json({ error: "Failed to create review", detail: error.message }, { status: 500 })
+      NextResponse.json(debugInfo, { status: 500 })
     );
   }
 }
