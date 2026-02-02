@@ -522,9 +522,11 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     return resultMap;
   }
 
-  // 1. Önce toplu cache kontrolü yap
+  // 1. Önce toplu cache kontrolü yap (API çağrılarından önce!)
   const uniquePlaces = Array.from(new Map(places.map(p => [p.id, p])).values());
   const placeIds = uniquePlaces.map(p => p.id);
+  
+  console.log(`[Batch Analysis] 🔍 STEP 1: Cache kontrolü başlıyor (${placeIds.length} mekan)...`);
   
   log.analysis("Checking cache for venue IDs", {
     action: "cache_check_start",
@@ -535,7 +537,9 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
   let cachedTags: { [placeId: string]: string[] } = {};
   try {
     cachedTags = await getBatchCachedTags(placeIds);
+    console.log(`[Batch Analysis] ✅ Cache kontrolü tamamlandı: ${Object.keys(cachedTags).length}/${placeIds.length} mekan cache'de bulundu`);
   } catch (cacheError: any) {
+    console.log(`[Batch Analysis] ⚠️ Cache kontrolü başarısız - tüm mekanlar analiz edilecek`);
     log.storageError("Batch cache check failed, proceeding with full analysis", {
       action: "batch_cache_check_failed",
       placeIdsCount: placeIds.length,
@@ -548,6 +552,9 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
     if (tags && Array.isArray(tags) && tags.length > 0) {
       resultMap.set(placeId, tags);
       cachedVenues.push(placeId);
+      // Find place name for logging
+      const place = uniquePlaces.find(p => p.id === placeId);
+      console.log(`[Batch Analysis] 📦 Cache hit: ${place?.name || placeId} (${tags.length} tag)`);
       log.analysis("Using cached tags for place (cache hit)", {
         action: "batch_cache_hit",
         placeId,
@@ -560,6 +567,12 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
   // 2. Cache'de olmayan place'leri bul
   const uncachedPlaces = uniquePlaces.filter(place => !cachedTags[place.id] || !cachedTags[place.id]?.length);
   
+  console.log(`[Batch Analysis] 📊 Cache sonucu: ${cachedVenues.length} cached, ${uncachedPlaces.length} uncached`);
+  
+  if (uncachedPlaces.length > 0) {
+    console.log(`[Batch Analysis] 🔄 Uncached mekanlar:`, uncachedPlaces.map(p => p.name).join(", "));
+  }
+  
   log.analysis("Cache check completed - venue categorization", {
     action: "batch_cache_check_complete",
     totalPlaces: places.length,
@@ -570,7 +583,12 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
   });
 
   // 3. Cache'de olmayan place'ler için analiz yap (rate limiting ile)
+  if (uncachedPlaces.length === 0) {
+    console.log(`[Batch Analysis] ✅ Tüm mekanlar cache'de! API çağrısı yapılmayacak.`);
+  }
+  
   if (uncachedPlaces.length > 0) {
+    console.log(`[Batch Analysis] 🚀 STEP 2: ${uncachedPlaces.length} mekan için Gemini API analizi başlıyor...`);
     log.analysis("Starting sequential analysis with rate limiting", {
       action: "batch_analysis_start",
       uncachedCount: uncachedPlaces.length,
