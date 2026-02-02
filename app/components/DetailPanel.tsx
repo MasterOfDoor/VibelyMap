@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useProxy } from "../hooks/useProxy";
-import { useReviews, BlockchainReview } from "../hooks/useReviews";
+import { useReviews, BlockchainReview, Review } from "../hooks/useReviews";
 import { useSmartWallet } from "../hooks/useSmartWallet";
 import { analyzePlacePhotos } from "../hooks/ChatGPT_analysis";
+import { ReviewContextMenu, EditReviewModal } from "./ReviewContextMenu";
 
 export interface Place {
   id: string;
@@ -56,8 +57,12 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
   
   // Blockchain yorumları
   const { address, isConnected } = useSmartWallet();
-  const { reviews: blockchainReviews, submitReview, isSubmitting, isConfirmed, submitError, refetch } = useReviews(place?.id || null);
+  const { reviews: blockchainReviews, rawReviews, submitReview, updateReview, deleteReview, isSubmitting, isConfirmed, submitError, refetch } = useReviews(place?.id || null);
   
+  // Context menu state for reviews
+  const [reviewContextMenu, setReviewContextMenu] = useState<{ x: number; y: number; review: Review } | null>(null);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+
   // Yorum formu state
   const [reviewComment, setReviewComment] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
@@ -230,6 +235,33 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       alert(error?.message || "An error occurred while sending the comment");
     }
   }, [place?.id, isConnected, reviewComment, reviewRating, detailedRatings, submitReview, refetch]);
+
+  // Handle right-click on review
+  const handleReviewContextMenu = useCallback((e: React.MouseEvent, review: Review) => {
+    // Only allow context menu for user's own reviews
+    if (review.reviewer_address.toLowerCase() !== address?.toLowerCase()) {
+      return; // Don't show context menu for other users' reviews
+    }
+    e.preventDefault();
+    setReviewContextMenu({ x: e.clientX, y: e.clientY, review });
+  }, [address]);
+
+  // Handle edit review in detail panel
+  const handleEditReview = useCallback(async (rating: number, comment: string) => {
+    if (!editingReview) return;
+    await updateReview(editingReview.id, rating, comment);
+  }, [editingReview, updateReview]);
+
+  // Handle delete review in detail panel
+  const handleDeleteReview = useCallback(async (review: Review) => {
+    if (confirm("Are you sure you want to delete this review?")) {
+      try {
+        await deleteReview(review.id);
+      } catch (err) {
+        alert("Failed to delete review");
+      }
+    }
+  }, [deleteReview]);
 
   // Photos array'ini memoize et - hooks must be called before early return
   // Use deep comparison to maintain stable reference
@@ -899,37 +931,34 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
         )}
       </div>
 
-      {/* Blockchain Yorumları */}
-      {placeDetails.blockchainReviews && placeDetails.blockchainReviews.length > 0 && (
+      {/* User Reviews (from Supabase) */}
+      {rawReviews && rawReviews.length > 0 && (
         <div className="reviews">
           <h3>User Reviews</h3>
           <div id="blockchainReviewsList" className="review-list">
-            {placeDetails.blockchainReviews.map((review, index) => (
-              <div key={`blockchain-${review.tokenId}`} className="review-item">
-                <div className="review-header">
-                  <strong>
-                    {review.reviewer.slice(0, 6)}...{review.reviewer.slice(-4)}
-                  </strong>
-                  <span>⭐ {review.rating}</span>
-                  <span className="muted-text tiny">
-                    {new Date(Number(review.createdAt) * 1000).toLocaleDateString("tr-TR")}
-                  </span>
-                </div>
-                <p>{review.comment}</p>
-                {review.photos && review.photos.length > 0 && (
-                  <div className="review-photos">
-                    {review.photos.map((photo, photoIndex) => (
-                      <img
-                        key={photoIndex}
-                        src={photo}
-                        alt="Review photo"
-                        style={{ maxWidth: "200px", marginTop: "8px", borderRadius: "8px" }}
-                      />
-                    ))}
+            {rawReviews.map((review) => {
+              const isOwnReview = review.reviewer_address.toLowerCase() === address?.toLowerCase();
+              return (
+                <div
+                  key={review.id}
+                  className={`review-item ${isOwnReview ? "own-review" : ""}`}
+                  onContextMenu={(e) => handleReviewContextMenu(e, review)}
+                  title={isOwnReview ? "Right-click to edit or delete" : ""}
+                >
+                  <div className="review-header">
+                    <strong>
+                      {review.reviewer_address.slice(0, 6)}...{review.reviewer_address.slice(-4)}
+                      {isOwnReview && <span className="own-badge">You</span>}
+                    </strong>
+                    <span>⭐ {review.rating}</span>
+                    <span className="muted-text tiny">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+                  <p>{review.comment}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1229,6 +1258,27 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
         <div className="loading-indicator">
           <p>Loading details...</p>
         </div>
+      )}
+
+      {/* Review Context Menu */}
+      {reviewContextMenu && (
+        <ReviewContextMenu
+          x={reviewContextMenu.x}
+          y={reviewContextMenu.y}
+          onEdit={() => setEditingReview(reviewContextMenu.review)}
+          onDelete={() => handleDeleteReview(reviewContextMenu.review)}
+          onClose={() => setReviewContextMenu(null)}
+        />
+      )}
+
+      {/* Edit Review Modal */}
+      {editingReview && (
+        <EditReviewModal
+          review={editingReview}
+          onSave={handleEditReview}
+          onClose={() => setEditingReview(null)}
+          isLoading={isSubmitting}
+        />
       )}
     </section>
   );

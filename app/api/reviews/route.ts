@@ -39,7 +39,7 @@ function getSupabaseClient() {
 function setCorsHeaders(response: NextResponse) {
   const allowedOrigin = process.env.NEXT_PUBLIC_APP_URL || "*";
   response.headers.set("Access-Control-Allow-Origin", allowedOrigin);
-  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type");
   return response;
 }
@@ -149,6 +149,146 @@ export async function POST(request: NextRequest) {
     console.error("[Reviews API] POST error:", error);
     return setCorsHeaders(
       NextResponse.json({ error: "Failed to create review", detail: error.message }, { status: 500 })
+    );
+  }
+}
+
+// PUT: Update an existing review
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { reviewId, reviewerAddress, rating, comment, detailedRatings } = body;
+
+    if (!reviewId) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "reviewId is required" }, { status: 400 })
+      );
+    }
+
+    if (!reviewerAddress || !reviewerAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
+      );
+    }
+
+    if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Rating must be between 1 and 5" }, { status: 400 })
+      );
+    }
+
+    if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Comment is required" }, { status: 400 })
+      );
+    }
+
+    const normalizedAddress = reviewerAddress.toLowerCase();
+    const supabase = getSupabaseClient();
+
+    // Verify ownership before update
+    const { data: existingReview, error: fetchError } = await supabase
+      .from("reviews")
+      .select("reviewer_address")
+      .eq("id", reviewId)
+      .single();
+
+    if (fetchError || !existingReview) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Review not found" }, { status: 404 })
+      );
+    }
+
+    if (existingReview.reviewer_address !== normalizedAddress) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "You can only edit your own reviews" }, { status: 403 })
+      );
+    }
+
+    // Update the review
+    const { data: review, error } = await supabase
+      .from("reviews")
+      .update({
+        rating: rating,
+        comment: comment.trim(),
+        detailed_ratings: detailedRatings || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", reviewId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("[Reviews API] Update error:", error);
+      throw error;
+    }
+
+    return setCorsHeaders(NextResponse.json({ success: true, review }));
+  } catch (error: any) {
+    console.error("[Reviews API] PUT error:", error);
+    return setCorsHeaders(
+      NextResponse.json({ error: "Failed to update review", detail: error.message }, { status: 500 })
+    );
+  }
+}
+
+// DELETE: Delete a review
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const reviewId = searchParams.get("reviewId");
+    const reviewerAddress = searchParams.get("reviewerAddress");
+
+    if (!reviewId) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "reviewId is required" }, { status: 400 })
+      );
+    }
+
+    if (!reviewerAddress || !reviewerAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Invalid wallet address" }, { status: 400 })
+      );
+    }
+
+    const normalizedAddress = reviewerAddress.toLowerCase();
+    const supabase = getSupabaseClient();
+
+    // Verify ownership before delete
+    const { data: existingReview, error: fetchError } = await supabase
+      .from("reviews")
+      .select("reviewer_address")
+      .eq("id", reviewId)
+      .single();
+
+    if (fetchError || !existingReview) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "Review not found" }, { status: 404 })
+      );
+    }
+
+    if (existingReview.reviewer_address !== normalizedAddress) {
+      return setCorsHeaders(
+        NextResponse.json({ error: "You can only delete your own reviews" }, { status: 403 })
+      );
+    }
+
+    // Delete the review
+    const { error } = await supabase
+      .from("reviews")
+      .delete()
+      .eq("id", reviewId);
+
+    if (error) {
+      console.error("[Reviews API] Delete error:", error);
+      throw error;
+    }
+
+    return setCorsHeaders(NextResponse.json({ success: true }));
+  } catch (error: any) {
+    console.error("[Reviews API] DELETE error:", error);
+    return setCorsHeaders(
+      NextResponse.json({ error: "Failed to delete review", detail: error.message }, { status: 500 })
     );
   }
 }

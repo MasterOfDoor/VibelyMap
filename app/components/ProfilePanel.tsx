@@ -4,8 +4,9 @@ import { useAccount } from "wagmi";
 import { useEffect, useRef, useState } from "react";
 import { useProfileAvatar } from "../hooks/useProfileAvatar";
 import { useUserProfile } from "../hooks/useUserProfile";
-import { useUserReviews } from "../hooks/useUserReviews";
+import { useUserReviews, UserReview } from "../hooks/useUserReviews";
 import { useTheme } from "../contexts/ThemeContext";
+import { ReviewContextMenu, EditReviewModal } from "./ReviewContextMenu";
 
 interface ProfilePanelProps {
   isOpen: boolean;
@@ -27,8 +28,35 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const { profile, isLoading: isProfileLoading } = useUserProfile(address);
   
   // User reviews hook
-  const { reviews: userReviews, reviewCount, isLoading: isReviewsLoading } = useUserReviews(address);
+  const { reviews: userReviews, reviewCount, isLoading: isReviewsLoading, isUpdating, updateReview, deleteReview } = useUserReviews(address);
   
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; review: UserReview } | null>(null);
+  const [editingReview, setEditingReview] = useState<UserReview | null>(null);
+
+  // Handle right-click on review
+  const handleReviewContextMenu = (e: React.MouseEvent, review: UserReview) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, review });
+  };
+
+  // Handle edit review
+  const handleEditReview = async (rating: number, comment: string) => {
+    if (!editingReview) return;
+    await updateReview(editingReview.id, rating, comment);
+  };
+
+  // Handle delete review
+  const handleDeleteReview = async (review: UserReview) => {
+    if (confirm("Are you sure you want to delete this review?")) {
+      try {
+        await deleteReview(review.id);
+      } catch (err) {
+        alert("Failed to delete review");
+      }
+    }
+  };
+
   // Theme hook
   const { theme, toggleTheme, isDark } = useTheme();
 
@@ -427,7 +455,12 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             "No reviews yet."
           ) : (
             userReviews.map((review) => (
-              <div key={review.id} className="review-card">
+              <div
+                key={review.id}
+                className="review-card"
+                onContextMenu={(e) => handleReviewContextMenu(e, review)}
+                title="Right-click to edit or delete"
+              >
                 <div className="review-header">
                   <div className="review-rating">
                     {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
@@ -445,6 +478,27 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           )}
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ReviewContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onEdit={() => setEditingReview(contextMenu.review)}
+          onDelete={() => handleDeleteReview(contextMenu.review)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editingReview && (
+        <EditReviewModal
+          review={editingReview}
+          onSave={handleEditReview}
+          onClose={() => setEditingReview(null)}
+          isLoading={isUpdating}
+        />
+      )}
     </section>
   );
 }

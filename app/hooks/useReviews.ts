@@ -158,10 +158,70 @@ export function useReviews(placeId: string | null) {
     createdAt: BigInt(Math.floor(new Date(review.created_at).getTime() / 1000)),
   }));
 
+  // Update a review
+  const updateReview = async (reviewId: string, rating: number, comment: string) => {
+    if (!isConnected || !address) {
+      throw new Error("Wallet connection required");
+    }
+
+    try {
+      const response = await fetch("/api/reviews", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewId,
+          reviewerAddress: address,
+          rating,
+          comment,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update review");
+      }
+
+      await fetchReviews();
+      return data.review;
+    } catch (error: any) {
+      console.error("[useReviews] Update error:", error);
+      throw error;
+    }
+  };
+
+  // Delete a review
+  const deleteReview = async (reviewId: string) => {
+    if (!isConnected || !address) {
+      throw new Error("Wallet connection required");
+    }
+
+    try {
+      const response = await fetch(
+        `/api/reviews?reviewId=${encodeURIComponent(reviewId)}&reviewerAddress=${encodeURIComponent(address)}`,
+        { method: "DELETE" }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete review");
+      }
+
+      await fetchReviews();
+      return true;
+    } catch (error: any) {
+      console.error("[useReviews] Delete error:", error);
+      throw error;
+    }
+  };
+
   return {
     reviews: blockchainReviews,
     rawReviews: reviews, // Original Supabase format
     submitReview,
+    updateReview,
+    deleteReview,
     isSubmitting,
     isConfirmed,
     submitError,
