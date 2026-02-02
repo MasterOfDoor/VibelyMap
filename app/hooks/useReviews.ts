@@ -121,6 +121,7 @@ export function useReviews(placeId: string | null) {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("[useReviews] Server error response:", JSON.stringify(errorData, null, 2));
         throw new Error(errorData.error || "Failed to submit review");
       }
 
