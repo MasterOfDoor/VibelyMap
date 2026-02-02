@@ -260,8 +260,8 @@ export default function SearchOverlay({
           ref={inputRef}
           type="text"
           id="placeSearchInput"
-          placeholder="Mekan ara"
-          aria-label="Mekan ara"
+          placeholder="Search places"
+          aria-label="Search places"
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyPress}
@@ -271,7 +271,7 @@ export default function SearchOverlay({
           className="pill secondary"
           onClick={handleSearch}
         >
-          Ara
+          Search
         </button>
         {(suggestions.length > 0 || isLoadingSuggestions || (noResultsFor != null && noResultsFor === query.trim())) && (
           <div 
@@ -280,9 +280,9 @@ export default function SearchOverlay({
             className="search-suggestions"
           >
             {isLoadingSuggestions ? (
-              <div className="suggestion-item loading">Aranıyor...</div>
+              <div className="suggestion-item loading">Searching...</div>
             ) : noResultsFor != null && noResultsFor === query.trim() ? (
-              <div className="suggestion-item loading">Sonuç bulunamadı</div>
+              <div className="suggestion-item loading">No results found</div>
             ) : (
               suggestions.map((suggestion, index) => (
                 <button

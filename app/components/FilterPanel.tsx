@@ -77,7 +77,7 @@ export default function FilterPanel({
     const hasCategory = selectedFilters.sub.Kategori && selectedFilters.sub.Kategori.length > 0;
     
     if (!hasCategory) {
-      alert("En az bir kategori seçmelisin.");
+      alert("You must select at least one category.");
       return;
     }
 
@@ -112,14 +112,14 @@ export default function FilterPanel({
     >
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Nasıl bir mekan istediğin?</p>
-          <h2>Filtrele</h2>
+          <p className="eyebrow">What kind of place do you want?</p>
+          <h2>Filter</h2>
         </div>
         <button
           id="closeFilter"
           className="icon-btn hide-close"
           onClick={onClose}
-          aria-label="Filtreyi kapat"
+          aria-label="Close filter"
         >
           &times;
         </button>
@@ -138,10 +138,10 @@ export default function FilterPanel({
             const currentValue = rangeValues[criterion];
             
             const labels = isIsiklandirma 
-              ? ["Canlı", "", "Doğal", "", "Loş"]
+              ? ["Bright", "", "Natural", "", "Dim"]
               : isPriz
-              ? ["", "Az", "Orta", "Var", "Masada Priz"]
-              : ["Yok", "Az", "Orta", "Var"];
+              ? ["", "Few", "Medium", "Available", "Table Outlet"]
+              : ["None", "Few", "Medium", "Available"];
             
             return (
               <div
@@ -163,7 +163,7 @@ export default function FilterPanel({
                   <div style={{ padding: "16px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                       <span style={{ minWidth: "80px", fontSize: "14px", fontWeight: "500" }}>
-                        Puan: {currentValue}
+                        Score: {currentValue}
                       </span>
                       <input
                         type="range"
@@ -254,7 +254,7 @@ export default function FilterPanel({
           className="pill ghost"
           onClick={handleReset}
         >
-          Temizle
+          Clear
         </button>
         <button
           type="button"
@@ -262,7 +262,7 @@ export default function FilterPanel({
           className="pill secondary"
           onClick={handleApply}
         >
-          Filtreyi Uygula
+          Apply Filter
         </button>
       </form>
     </aside>

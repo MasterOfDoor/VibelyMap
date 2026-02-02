@@ -64,7 +64,7 @@ export default function TopBar({
       className="top-bar-wrapper"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      aria-label="Üst menü hover alanı"
+      aria-label="Top menu hover area"
     >
       <div
         className={`top-bar ${isVisible ? "top-bar--visible" : "top-bar--hidden"}`}
@@ -75,7 +75,7 @@ export default function TopBar({
           id="menuToggle"
           className="hamburger"
           onClick={onMenuToggle}
-          aria-label="Filtreleri aç/kapat"
+          aria-label="Toggle filters"
         >
           <span></span>
           <span></span>
@@ -85,19 +85,19 @@ export default function TopBar({
           id="openSearch"
           className="icon-btn search-icon"
           onClick={onSearchClick}
-          aria-label="Mekan ara"
+          aria-label="Search places"
         >
           🔍
         </button>
         <div className="brand">
-          <h1>Yakın mekanlar</h1>
+          <h1>Nearby Places</h1>
         </div>
       </div>
       <div className="actions">
         <button
           id="notificationButton"
           className="icon-btn bell"
-          aria-label="Bildirimler"
+          aria-label="Notifications"
         >
           🔔
           <span id="notificationDot" className="notif-dot hidden" aria-hidden="true"></span>
@@ -112,7 +112,7 @@ export default function TopBar({
             onLocationClick();
           }}
         >
-          Konumumu Göster
+          Show My Location
         </button>
         <button
           id="openEventPanel"
@@ -120,9 +120,9 @@ export default function TopBar({
           onClick={onEventsClick}
           disabled
           style={{ opacity: 0.5, cursor: "not-allowed" }}
-          title="Etkinlikler özelliği yakında gelecek"
+          title="Events feature coming soon"
         >
-          Etkinlikler
+          Events
         </button>
         <button
           id="profileButton"
@@ -135,7 +135,7 @@ export default function TopBar({
               ? address.slice(2, 4).toUpperCase()
               : "P"}
           </span>
-          <span className="profile-label">Profil</span>
+          <span className="profile-label">Profile</span>
         </button>
       </div>
     </div>

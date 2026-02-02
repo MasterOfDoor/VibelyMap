@@ -51,7 +51,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   // Arkadaş ekleme (şimdilik sadece UI/Log)
   const handleAddFriend = async (friendAddress: string) => {
     console.log("Adding friend:", friendAddress);
-    alert(`Gurme eklendi (yakında): ${friendAddress}`);
+    alert(`Friend added (coming soon): ${friendAddress}`);
     setSearchQuery("");
     setSearchResults([]);
   };
@@ -178,7 +178,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             className="avatar-upload-btn"
             disabled={isLoading || uploadProgress > 0}
           >
-            {uploadProgress > 0 ? "Yükleniyor..." : "Foto ekle"}
+            {uploadProgress > 0 ? "Uploading..." : "Add photo"}
           </button>
           <input
             type="file"
@@ -191,23 +191,23 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
         <div className="hero-main">
           <div className="hero-top">
             <div>
-              <p className="eyebrow">Hesabım</p>
+              <p className="eyebrow">My Account</p>
               <h2 id="profileUsername">
                 {isMounted && isConnected && profile?.username
                   ? `@${profile.username}`
                   : isMounted && isConnected && address
                   ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                  : "Giriş yap"}
+                  : "Sign in"}
               </h2>
               <p id="profileEmail" className="muted-text tiny">
                 {isMounted && isConnected && address
                   ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                  : "@kullanici"}
+                  : "@username"}
               </p>
             </div>
             <div className="hero-actions">
               <button id="openSettings" className="pill secondary">
-                Ayarlar
+                Settings
               </button>
               {isMounted && isConnected && (
                 <>
@@ -215,8 +215,8 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                     id="darkModeToggle"
                     className="pill ghost dark-mode-toggle"
                     onClick={toggleTheme}
-                    aria-label={isDark ? "Açık moda geç" : "Koyu moda geç"}
-                    title={isDark ? "Açık mod" : "Koyu mod"}
+                    aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+                    title={isDark ? "Light mode" : "Dark mode"}
                   >
                     <svg
                       width="20"
@@ -258,7 +258,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                     </svg>
                   </button>
                   <button id="signOut" className="pill ghost">
-                    Çıkış yap
+                    Sign out
                   </button>
                 </>
               )}
@@ -266,7 +266,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                 id="closeProfile"
                 className="icon-btn hide-close"
                 onClick={onClose}
-                aria-label="Profili kapat"
+                aria-label="Close profile"
               >
                 &times;
               </button>
@@ -275,21 +275,21 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           <div className="profile-stats">
             <button type="button" id="btnFollowing" className="stat linkish">
               <strong id="followingCount">0</strong>
-              <span>Gurmelerim</span>
+              <span>Following</span>
             </button>
             <button type="button" id="btnFollowers" className="stat linkish">
               <strong id="followerCount">0</strong>
-              <span>Müdavimlerim</span>
+              <span>Followers</span>
             </button>
             <div className="stat review-centered">
               <strong id="reviewCount">0</strong>
-              <span>Gurmenin yorumları</span>
+              <span>Reviews</span>
             </div>
           </div>
           <p id="authState" className="muted-text bio-line">
             {isMounted && isConnected
-              ? "Base Wallet ile bağlısınız"
-              : "Giriş yapmadınız."}
+              ? "Connected with Base Wallet"
+              : "Not signed in."}
           </p>
         </div>
       </div>
@@ -297,15 +297,15 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       <div id="settingsPanel" className="settings-panel hidden">
         <div className="settings-row">
           <div>
-            <p className="eyebrow">Hesap durumu</p>
+            <p className="eyebrow">Account status</p>
             <p className="muted-text tiny">
-              Açık: herkes ekleyebilir. Kapalı: izin gerekir.
+              Public: anyone can add. Private: permission required.
             </p>
           </div>
           <label className="switch">
             <input type="checkbox" id="accountPrivacy" />
             <span className="slider"></span>
-            <span className="switch-label" data-on="Açık" data-off="Kapalı"></span>
+            <span className="switch-label" data-on="Public" data-off="Private"></span>
           </label>
         </div>
       </div>
@@ -313,9 +313,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       <div className="friends">
         <div className="friends-header">
           <div>
-            <h3>Gurme ekle</h3>
+            <h3>Add Friend</h3>
             <p className="muted-text tiny friends-subtext">
-              Kullanıcı adı veya cüzdan adresi ile ekle.
+              Add by username or wallet address.
             </p>
           </div>
         </div>
@@ -334,7 +334,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                   setSearchResults([]);
                 }
               }}
-              placeholder="Kullanıcı adı veya 0x..."
+              placeholder="Username or 0x..."
               className="w-full"
             />
             {isSearching && (
@@ -355,7 +355,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
                     className="pill secondary tiny"
                     onClick={() => handleAddFriend(result.address)}
                   >
-                    Ekle
+                    Add
           </button>
                 </div>
               ))}
@@ -363,7 +363,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           )}
           
           {searchQuery.length >= 2 && !isSearching && searchResults.length === 0 && (
-            <p className="muted-text tiny mt-2 ml-1">Kullanıcı bulunamadı.</p>
+            <p className="muted-text tiny mt-2 ml-1">User not found.</p>
           )}
         </div>
       </div>
@@ -371,23 +371,23 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
       <div id="connectionsSection" className="connections hidden">
         <div className="connections-header">
           <div>
-            <h4 id="connectionsTitle">Bağlantılar</h4>
+            <h4 id="connectionsTitle">Connections</h4>
             <p className="muted-text tiny" id="connectionsSubtitle">
-              Gurme listesi
+              Friend list
             </p>
           </div>
           <div className="connections-actions">
             <button
               id="openConnectionSearch"
               className="icon-btn search-icon"
-              aria-label="Kullanıcı ara"
+              aria-label="Search users"
             >
               🔍
             </button>
             <button
               id="closeConnections"
               className="icon-btn"
-              aria-label="Kapat"
+              aria-label="Close"
             >
               &times;
             </button>
@@ -397,7 +397,7 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           <input
             id="connectionSearchInput"
             type="text"
-            placeholder="kullanıcı adı ara"
+            placeholder="search username"
           />
           <div
             id="connectionSuggestions"
@@ -405,17 +405,17 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
           ></div>
         </div>
         <div id="connectionsList" className="chip-list empty">
-          Boş.
+          Empty.
         </div>
       </div>
 
       <div className="profile-reviews">
         <div className="reviews-header">
-          <h3>Gurmenin yorumları</h3>
-          <p className="muted-text tiny">En yeni yorumların altta.</p>
+          <h3>User Reviews</h3>
+          <p className="muted-text tiny">Latest reviews at the bottom.</p>
         </div>
         <div id="myReviews" className="review-gallery empty">
-          Yorum yok.
+          No reviews.
         </div>
       </div>
     </section>

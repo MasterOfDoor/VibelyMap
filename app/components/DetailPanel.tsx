@@ -115,7 +115,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
           photo: photos[0] || prev?.photo,
           photos: photos.length > 0 ? photos : prev?.photos,
           externalReviews: (result.reviews || []).map((r: any) => ({
-            author: r.author_name || "Ziyaretçi",
+            author: r.author_name || "Visitor",
             text: r.text || "",
             rating: r.rating || null,
             relativeTime: r.relative_time_description || "",
@@ -184,12 +184,12 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
   const handleSubmitReview = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!place?.id || !isConnected) {
-      alert("Yorum yapmak için wallet bağlantısı gerekli");
+      alert("Wallet connection required to comment");
       return;
     }
 
     if (!reviewComment.trim()) {
-      alert("Lütfen bir yorum yazın");
+      alert("Please write a comment");
       return;
     }
 
@@ -206,7 +206,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       };
       
       // Comment'e detaylı bilgileri ekle (JSON formatında)
-      const enrichedComment = `${reviewComment.trim()}\n\n[Detaylı Değerlendirme: ${JSON.stringify(detailedInfo)}]`;
+      const enrichedComment = `${reviewComment.trim()}\n\n[Detailed Review: ${JSON.stringify(detailedInfo)}]`;
       
       await submitReview(reviewRating, enrichedComment, []);
       setReviewComment("");
@@ -229,7 +229,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       });
     } catch (error: any) {
       console.error("Yorum gönderme hatası:", error);
-      alert(error?.message || "Yorum gönderilirken bir hata oluştu");
+      alert(error?.message || "An error occurred while sending the comment");
     }
   }, [place?.id, isConnected, reviewComment, reviewRating, detailedRatings, submitReview, refetch]);
 
@@ -410,17 +410,17 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
     const lowerTag = tag.toLowerCase();
     if (lowerTag.includes("ışıklandırma") || lowerTag.includes("isiklandirma")) {
       const level = tag.match(/\d+/)?.[0];
-      return level ? `Işıklandırma seviyesi: ${level}/5` : "Işıklandırma bilgisi";
+      return level ? `Lighting level: ${level}/5` : "Lighting info";
     }
     if (lowerTag.includes("koltuk")) {
       const level = tag.match(/\d+/)?.[0];
-      return level ? `Oturma alanı seviyesi: ${level}/3` : "Oturma alanı bilgisi";
+      return level ? `Seating area level: ${level}/3` : "Seating area info";
     }
-    if (lowerTag.includes("sigara")) return "Sigara içilebilir alan";
-    if (lowerTag.includes("deniz")) return "Deniz manzarası";
-    if (lowerTag.includes("priz")) return "Masada priz mevcut";
-    if (lowerTag.includes("retro")) return "Retro ambiyans";
-    if (lowerTag.includes("modern")) return "Modern tasarım";
+    if (lowerTag.includes("sigara")) return "Smoking area available";
+    if (lowerTag.includes("deniz")) return "Sea view";
+    if (lowerTag.includes("priz")) return "Power outlet available";
+    if (lowerTag.includes("retro")) return "Retro ambiance";
+    if (lowerTag.includes("modern")) return "Modern design";
     return tag;
   };
 
@@ -434,7 +434,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       <div className="panel-header">
         <div>
           <p id="placeType" className="eyebrow">
-            {placeDetails.type || "Mekan"}
+            {placeDetails.type || "Place"}
           </p>
           <h2 id="placeName">{placeDetails.name}</h2>
           {placeDetails.hours && (
@@ -444,20 +444,20 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
           )}
           {placeDetails.address && (
             <div id="placeAddress" className="muted-text tiny">
-              Adres: {placeDetails.address}
+              Address: {placeDetails.address}
             </div>
           )}
           <div id="placeTags" className="tags-container">
             {isAnalyzing && (
               <div className="analysis-loader" style={{ marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px", color: "var(--primary)" }}>
                 <span className="animate-spin">⏳</span>
-                <span className="tiny" style={{ fontWeight: 600 }}>AI Analizi yapılıyor...</span>
+                <span className="tiny" style={{ fontWeight: 600 }}>AI Analysis in progress...</span>
               </div>
             )}
             {placeDetails.tags && placeDetails.tags.length > 0 && (
               <div className="tags-section">
                 <div className="tags-header">
-                  <span className="tags-label">Etiketler</span>
+                  <span className="tags-label">Tags</span>
                   {placeDetails.tags.length > 0 && (
                     <span className="tags-count">{placeDetails.tags.length}</span>
                   )}
@@ -485,7 +485,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                         data-category={tagCategory}
                       >
                         {isAITag && (
-                          <span className="tag-badge tag-badge-ai" aria-label="AI analizi etiketi" title="AI ile analiz edildi">
+                          <span className="tag-badge tag-badge-ai" aria-label="AI analysis tag" title="Analyzed with AI">
                             🤖
               </span>
                         )}
@@ -500,7 +500,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             {placeDetails.features && placeDetails.features.length > 0 && (
               <div className="tags-section">
                 <div className="tags-header">
-                  <span className="tags-label">Özellikler</span>
+                  <span className="tags-label">Features</span>
                 </div>
                 <div className="tags" role="list">
                   {placeDetails.features.map((feature, index) => (
@@ -522,7 +522,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
           id="closeDetail"
           className="icon-btn"
           onClick={onClose}
-          aria-label="Detayı kapat"
+          aria-label="Close details"
           style={{
             display: "flex",
             alignItems: "center",
@@ -556,7 +556,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                     e.preventDefault();
                     handlePrevPhoto(e);
                   }}
-                aria-label="Önceki foto"
+                aria-label="Previous photo"
                 type="button"
                   style={{
                     position: "absolute",
@@ -595,7 +595,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                     e.preventDefault();
                     handleNextPhoto(e);
                   }}
-                aria-label="Sonraki foto"
+                aria-label="Next photo"
                 type="button"
                   style={{
                     position: "absolute",
@@ -650,7 +650,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
               fontSize: "12px", 
               color: "var(--muted)" 
             }}>
-              Fotoğraf {currentPhotoIndex + 1} / {photos.length}
+              Photo {currentPhotoIndex + 1} / {photos.length}
             </div>
           )}
         </div>
@@ -752,7 +752,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
               e.currentTarget.style.transform = "scale(1)";
               e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.8)";
             }}
-            aria-label="Kapat"
+            aria-label="Close"
           >
             &times;
           </button>
@@ -802,7 +802,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   e.currentTarget.style.transform = "translateY(-50%) scale(1)";
                   e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.8)";
                 }}
-                aria-label="Önceki foto"
+                aria-label="Previous photo"
               >
                 &lt;
               </button>
@@ -848,7 +848,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   e.currentTarget.style.transform = "translateY(-50%) scale(1)";
                   e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.8)";
                 }}
-                aria-label="Sonraki foto"
+                aria-label="Next photo"
               >
                 &gt;
               </button>
@@ -882,10 +882,10 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
 
       <div className="info-row" id="placeInfo">
         {placeDetails.rating && (
-          <span>Puan: {placeDetails.rating}</span>
+          <span>Rating: {placeDetails.rating}</span>
         )}
         {placeDetails.priceLabel && (
-          <span>Fiyat: {placeDetails.priceLabel}</span>
+          <span>Price: {placeDetails.priceLabel}</span>
         )}
         {placeDetails.tel && <span>Tel: {placeDetails.tel}</span>}
         {placeDetails.website && (
@@ -904,7 +904,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       {/* Blockchain Yorumları */}
       {placeDetails.blockchainReviews && placeDetails.blockchainReviews.length > 0 && (
         <div className="reviews">
-          <h3>Blockchain Yorumları</h3>
+          <h3>Blockchain Reviews</h3>
           <div id="blockchainReviewsList" className="review-list">
             {placeDetails.blockchainReviews.map((review, index) => (
               <div key={`blockchain-${review.tokenId}`} className="review-item">
@@ -939,7 +939,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       {/* Google'dan gelen yorumlar */}
       {placeDetails.externalReviews && placeDetails.externalReviews.length > 0 && (
         <div className="reviews">
-          <h3>Google Yorumları</h3>
+          <h3>Google Reviews</h3>
           <div id="reviewsList" className="review-list">
             {placeDetails.externalReviews.map((review, index) => (
               <div key={index} className="review-item">
@@ -960,10 +960,10 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       {/* Yorum Yapma Formu */}
       <div className="reviews">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <h3>Yorum Yap</h3>
+          <h3>Write Review</h3>
           {!isConnected && (
             <span className="muted-text tiny" style={{ color: "#ff6b6b" }}>
-              Yorum yapmak için wallet bağlayın
+              Connect wallet to comment
             </span>
           )}
         </div>
@@ -979,7 +979,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             className="pill primary"
             style={{ width: "100%", marginBottom: "16px" }}
           >
-            Yorum Yaz
+            Write Review
           </button>
         )}
 
@@ -988,7 +988,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             {/* Genel Puan */}
             <div style={{ marginBottom: "24px" }}>
               <label htmlFor="reviewRating" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
-                Genel Puan: {reviewRating} ⭐
+                Overall Rating: {reviewRating} ⭐
             </label>
             <input
               type="range"
@@ -1008,13 +1008,13 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             {/* Detaylı Değerlendirme Kriterleri */}
             <div className="detailed-ratings-section" style={{ marginBottom: "24px", padding: "16px", borderRadius: "12px" }}>
               <h4 style={{ marginBottom: "16px", fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
-                Detaylı Değerlendirme
+                Detailed Review
               </h4>
 
               {/* Işıklandırma */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>💡 Işıklandırma</span>
+                  <span>💡 Lighting</span>
                   <span className="rating-value-display">{detailedRatings.lighting} ⭐</span>
                 </label>
                 <input
@@ -1026,15 +1026,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   style={{ width: "100%" }}
                 />
                 <div className="rating-range-labels">
-                  <span>Kötü (1)</span>
-                  <span>Mükemmel (5)</span>
+                  <span>Poor (1)</span>
+                  <span>Excellent (5)</span>
                 </div>
               </div>
 
               {/* Ambiyans */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>🎨 Ambiyans</span>
+                  <span>🎨 Ambiance</span>
                   <span className="rating-value-display">{detailedRatings.ambiance} ⭐</span>
                 </label>
                 <input
@@ -1046,15 +1046,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   style={{ width: "100%" }}
                 />
                 <div className="rating-range-labels">
-                  <span>Kötü (1)</span>
-                  <span>Mükemmel (5)</span>
+                  <span>Poor (1)</span>
+                  <span>Excellent (5)</span>
                 </div>
               </div>
 
               {/* Oturma */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>🪑 Oturma</span>
+                  <span>🪑 Seating</span>
                   <span className="rating-value-display">{detailedRatings.seating} ⭐</span>
                 </label>
                 <input
@@ -1066,15 +1066,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   style={{ width: "100%" }}
                 />
                 <div className="rating-range-labels">
-                  <span>Kötü (1)</span>
-                  <span>Mükemmel (5)</span>
+                  <span>Poor (1)</span>
+                  <span>Excellent (5)</span>
                 </div>
               </div>
 
               {/* Priz */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>🔌 Priz</span>
+                  <span>🔌 Power Outlets</span>
                   <span className="rating-value-display">{detailedRatings.powerOutlets} ⭐</span>
                 </label>
                 <input
@@ -1086,15 +1086,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   style={{ width: "100%" }}
                 />
                 <div className="rating-range-labels">
-                  <span>Yetersiz (1)</span>
-                  <span>Mükemmel (5)</span>
+                  <span>Insufficient (1)</span>
+                  <span>Excellent (5)</span>
                 </div>
               </div>
 
               {/* Deniz Yakınlığı */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>🌊 Deniz Yakınlığı</span>
+                  <span>🌊 Proximity to Water</span>
                   <span className="rating-value-display">{detailedRatings.proximityToWater} ⭐</span>
                 </label>
                 <input
@@ -1106,15 +1106,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                   style={{ width: "100%" }}
                 />
                 <div className="rating-range-labels">
-                  <span>Uzak (1)</span>
-                  <span>Çok Yakın (5)</span>
+                  <span>Far (1)</span>
+                  <span>Very Close (5)</span>
                 </div>
               </div>
 
               {/* Sigara Seçenekleri */}
               <div className="rating-criterion">
                 <label className="rating-label">
-                  <span>🚬 Sigara Seçenekleri</span>
+                  <span>🚬 Smoking Options</span>
                 </label>
                 <div className="option-buttons">
                   <button
@@ -1125,7 +1125,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                     }))}
                     className={`option-button ${detailedRatings.smokingOption === "indoor_smoking" ? "active" : ""}`}
                   >
-                    Kapalı Alanda Sigara İçilebilir
+                    Indoor Smoking Allowed
                   </button>
                   <button
                     type="button"
@@ -1135,7 +1135,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                     }))}
                     className={`option-button ${detailedRatings.smokingOption === "non_smoking" ? "active" : ""}`}
                   >
-                    Sigara İçilmez
+                    Non-Smoking
                   </button>
                 </div>
               </div>
@@ -1143,7 +1143,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
               {/* Kategori */}
               <div className="rating-criterion" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: "none" }}>
                 <label className="rating-label">
-                  <span>📍 Kategori</span>
+                  <span>📍 Category</span>
                 </label>
                 <div className="option-buttons">
                   {["Kafe", "Restoran", "Bar"].map((cat) => (
@@ -1166,14 +1166,14 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
             {/* Yorum Metni */}
             <div style={{ marginBottom: "16px" }}>
               <label htmlFor="reviewComment" style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
-              Yorumunuz
+              Your Comment
             </label>
             <textarea
               id="reviewComment"
               value={reviewComment}
               onChange={(e) => setReviewComment(e.target.value)}
               rows={4}
-              placeholder="Bu mekan hakkında düşüncelerinizi paylaşın..."
+              placeholder="Share your thoughts about this place..."
               style={{
                 width: "100%",
                 padding: "12px",
@@ -1193,7 +1193,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                 disabled={isSubmitting || !reviewComment.trim()}
                 style={{ flex: 1 }}
               >
-                {isSubmitting ? "Gönderiliyor..." : isConfirmed ? "Gönderildi! ✅" : "Yorumu Gönder"}
+                {isSubmitting ? "Submitting..." : isConfirmed ? "Submitted! ✅" : "Submit Review"}
               </button>
               <button
                 type="button"
@@ -1214,13 +1214,13 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
                 className="pill ghost"
                 disabled={isSubmitting}
               >
-                İptal
+                Cancel
               </button>
             </div>
 
             {submitError && (
               <div style={{ marginTop: "12px", padding: "8px", background: "#ffebee", borderRadius: "8px", color: "#c62828" }}>
-                Hata: {submitError.message || "Yorum gönderilemedi"}
+                Error: {submitError.message || "Failed to submit review"}
               </div>
             )}
           </form>
@@ -1229,7 +1229,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
 
       {loading && (
         <div className="loading-indicator">
-          <p>Detaylar yükleniyor...</p>
+          <p>Loading details...</p>
         </div>
       )}
     </section>

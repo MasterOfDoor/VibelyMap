@@ -26,14 +26,14 @@ export default function ResultsPanel({
     >
       <div className="panel-header">
         <div>
-          <p className="eyebrow">Sonuçlar</p>
-          <h2>Bulunan mekanlar ({places.length})</h2>
+          <p className="eyebrow">Results</p>
+          <h2>Found places ({places.length})</h2>
         </div>
         <button
           id="closeResults"
           className="icon-btn hide-close"
           onClick={onClose}
-          aria-label="Sonuç listesini kapat"
+          aria-label="Close results list"
         >
           &times;
         </button>
@@ -43,7 +43,7 @@ export default function ResultsPanel({
         className={`results-list ${places.length === 0 ? "empty" : ""}`}
       >
         {places.length === 0 ? (
-          <p>Sonuç yok.</p>
+          <p>No results.</p>
         ) : (
           places.map((place) => {
             const analyzing = isPlaceAnalyzing?.(place.id);

@@ -41,21 +41,21 @@ export default function WalletConnectionScreen() {
   }, [isConnected, address]);
 
   const getErrorMessage = (err: any): string => {
-    if (!err) return "Bilinmeyen hata";
+    if (!err) return "Unknown error";
     
     const message = err.message || err.toString();
     
     if (message.includes("rejected") || message.includes("User rejected")) {
-      return "Cüzdan bağlantısı reddedildi. Lütfen cüzdanınızda bağlantıyı onaylayın.";
+      return "Wallet connection rejected. Please approve the connection in your wallet.";
     }
     if (message.includes("not found") || message.includes("install")) {
-      return "Cüzdan bulunamadı. Lütfen cüzdan uygulamasını yükleyin ve tekrar deneyin.";
+      return "Wallet not found. Please install the wallet app and try again.";
     }
     if (message.includes("network") || message.includes("chain")) {
-      return "Ağ hatası. Lütfen cüzdanınızda Base ağının seçili olduğundan emin olun.";
+      return "Network error. Please make sure Base network is selected in your wallet.";
     }
     
-    return `Bağlantı hatası: ${message}`;
+    return `Connection error: ${message}`;
   };
 
   const handleWalletSelect = (walletId: string) => {
@@ -65,7 +65,7 @@ export default function WalletConnectionScreen() {
     const walletConnector = connectors.find((c) => c.id === walletId);
     
     if (!walletConnector) {
-      setConnectionError("Seçilen cüzdan bulunamadı.");
+      setConnectionError("Selected wallet not found.");
       setConnectionStep("error");
       return;
     }
@@ -92,28 +92,28 @@ export default function WalletConnectionScreen() {
     .map((connector) => {
       let name = connector.name;
       let icon = "🔗";
-      let description = "Cüzdan ile bağlan";
+      let description = "Connect with wallet";
 
       if (connector.id === "baseAccounts" || connector.id.includes("baseAccounts")) {
         name = "Base Account";
         icon = "🔷";
-        description = "Base Mini App için optimize edilmiş hesap";
+        description = "Optimized account for Base Mini App";
       } else if (connector.id.includes("coinbase") || connector.id.includes("coinbaseWalletSDK")) {
         name = "Coinbase Wallet";
         icon = "🔷";
-        description = "Coinbase cüzdanı ile bağlan";
+        description = "Connect with Coinbase Wallet";
       } else if (connector.id.includes("metaMask") || connector.id.includes("injected")) {
         name = "MetaMask";
         icon = "🦊";
-        description = "Popüler Web3 cüzdanı";
+        description = "Popular Web3 wallet";
       } else if (connector.id === "io.metamask") {
         name = "MetaMask";
         icon = "🦊";
-        description = "MetaMask cüzdanı";
+        description = "MetaMask wallet";
       } else if (connector.id.includes("walletConnect")) {
         name = "WalletConnect";
         icon = "🔗";
-        description = "QR kod ile bağlan";
+        description = "Connect with QR code";
       }
 
       return {
@@ -138,9 +138,9 @@ export default function WalletConnectionScreen() {
                 ? "🔷" 
                 : "🔗"}
             </div>
-            <h1 className="connection-title">Cüzdan Bağlanıyor...</h1>
+            <h1 className="connection-title">Connecting Wallet...</h1>
             <p className="connection-subtitle">
-              Lütfen cüzdanınızda bağlantıyı onaylayın
+              Please approve the connection in your wallet
             </p>
           </div>
           
@@ -152,13 +152,13 @@ export default function WalletConnectionScreen() {
 
           <div className="connection-instructions">
             <p className="instruction-text">
-              <strong>Adım 1:</strong> Cüzdan uygulamanızda açılan popup'ı kontrol edin
+              <strong>Step 1:</strong> Check the popup in your wallet app
             </p>
             <p className="instruction-text">
-              <strong>Adım 2:</strong> "Bağlan" veya "Approve" butonuna tıklayın
+              <strong>Step 2:</strong> Click "Connect" or "Approve" button
             </p>
             <p className="instruction-text">
-              <strong>Adım 3:</strong> İşlemi onaylayın
+              <strong>Step 3:</strong> Confirm the transaction
             </p>
           </div>
         </div>
@@ -173,17 +173,17 @@ export default function WalletConnectionScreen() {
         <div className="connection-container">
           <div className="connection-header">
             <div className="connection-icon error">⚠️</div>
-            <h1 className="connection-title">Bağlantı Hatası</h1>
+            <h1 className="connection-title">Connection Error</h1>
             <p className="connection-subtitle error-text">{connectionError}</p>
           </div>
 
           <div className="error-details">
-            <h2 className="error-title">Çözüm önerileri:</h2>
+            <h2 className="error-title">Suggested solutions:</h2>
             <ul className="error-list">
-              <li>Cüzdan uygulamanızın açık ve hazır olduğundan emin olun</li>
-              <li>Base ağının cüzdanınızda seçili olduğunu kontrol edin</li>
-              <li>Tarayıcı izinlerinizi kontrol edin</li>
-              <li>Cüzdan uygulamanızı yeniden başlatmayı deneyin</li>
+              <li>Make sure your wallet app is open and ready</li>
+              <li>Check that Base network is selected in your wallet</li>
+              <li>Check your browser permissions</li>
+              <li>Try restarting your wallet app</li>
             </ul>
           </div>
 
@@ -191,9 +191,9 @@ export default function WalletConnectionScreen() {
             <button
               onClick={handleRetry}
               className="btn-primary"
-              aria-label="Tekrar dene"
+              aria-label="Try again"
             >
-              Tekrar Dene
+              Try Again
             </button>
           </div>
         </div>
@@ -207,20 +207,20 @@ export default function WalletConnectionScreen() {
       <div className="connection-container">
         <div className="connection-header">
           <div className="connection-icon">🔐</div>
-          <h1 className="connection-title">Cüzdan Bağlantısı</h1>
+          <h1 className="connection-title">Wallet Connection</h1>
           <p className="connection-subtitle">
-            Uygulamayı kullanmak için cüzdanınızı bağlamanız gerekiyor
+            You need to connect your wallet to use the app
           </p>
         </div>
 
         <div className="security-notice">
           <p className="security-text">
-            <strong>🔒 Güvenlik:</strong> Cüzdan bilgileriniz sadece sizin kontrolünüzdedir.
-            Hiçbir zaman özel anahtarlarınızı paylaşmayın.
+            <strong>🔒 Security:</strong> Your wallet information is only under your control.
+            Never share your private keys.
           </p>
         </div>
 
-        <div className="wallet-options" role="list" aria-label="Cüzdan seçenekleri">
+        <div className="wallet-options" role="list" aria-label="Wallet options">
           {walletOptions.map((wallet) => {
             const isAvailable = connectors.some((c) => c.id === wallet.id);
             const isPendingConnection = isPending && selectedWallet === wallet.id;
@@ -232,7 +232,7 @@ export default function WalletConnectionScreen() {
                 disabled={!isAvailable || isPendingConnection}
                 className={`wallet-option ${!isAvailable ? "disabled" : ""} ${isPendingConnection ? "pending" : ""}`}
                 role="listitem"
-                aria-label={`${wallet.name} ile bağlan`}
+                aria-label={`Connect with ${wallet.name}`}
               >
                 <div className="wallet-icon">{wallet.icon}</div>
                 <div className="wallet-info">
@@ -240,12 +240,12 @@ export default function WalletConnectionScreen() {
                   <p className="wallet-description">{wallet.description}</p>
                 </div>
                 {!isAvailable && (
-                  <span className="wallet-status" aria-label="Kullanılamıyor">
-                    Kurulu Değil
+                  <span className="wallet-status" aria-label="Not available">
+                    Not Installed
                   </span>
                 )}
                 {isPendingConnection && (
-                  <span className="wallet-status" aria-label="Bağlanıyor">
+                  <span className="wallet-status" aria-label="Connecting">
                     ...
                   </span>
                 )}
@@ -257,27 +257,27 @@ export default function WalletConnectionScreen() {
         <div className="connection-help">
           <details className="help-details">
             <summary className="help-summary">
-              Cüzdanınız yok mu? Nasıl oluşturulur?
+              Don't have a wallet? How to create one?
             </summary>
             <div className="help-content">
               <p>
-                <strong>Base Wallet:</strong> Base ekosisteminde optimize edilmiş cüzdan.
-                Coinbase hesabınızla kolayca oluşturabilirsiniz.
+                <strong>Base Wallet:</strong> Optimized wallet for Base ecosystem.
+                You can easily create one with your Coinbase account.
               </p>
               <p>
-                <strong>MetaMask:</strong> En popüler Web3 cüzdanı.
+                <strong>MetaMask:</strong> The most popular Web3 wallet.
                 <a
                   href="https://metamask.io/download"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="help-link"
                 >
-                  MetaMask'i indirin
+                  Download MetaMask
                 </a>
               </p>
               <p className="security-tip">
-                <strong>💡 İpucu:</strong> Cüzdan oluştururken seed phrase'inizi güvenli bir
-                yerde saklayın. Bunu kaybederseniz cüzdanınıza erişemezsiniz.
+                <strong>💡 Tip:</strong> When creating a wallet, store your seed phrase in a
+                safe place. If you lose it, you cannot access your wallet.
               </p>
             </div>
           </details>

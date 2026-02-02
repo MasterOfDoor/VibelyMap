@@ -33,7 +33,7 @@ export default function UsernameSetupModal() {
     if (result.success) {
       setIsOpen(false);
     } else {
-      setError(result.error || "Bir hata oluştu");
+      setError(result.error || "An error occurred");
     }
     setIsSubmitting(false);
   };
@@ -47,16 +47,16 @@ export default function UsernameSetupModal() {
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
             👋
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Hoş Geldiniz!</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Welcome!</h2>
           <p className="text-gray-500">
-            Uygulamayı kullanmaya başlamadan önce kendinize benzersiz bir kullanıcı adı seçin.
+            Choose a unique username before you start using the app.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="username" className="text-sm font-semibold text-gray-700 ml-1">
-              Kullanıcı Adı
+              Username
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">@</span>
@@ -65,7 +65,7 @@ export default function UsernameSetupModal() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                placeholder="gurme_ismi"
+                placeholder="your_username"
                 className="w-full pl-10 pr-4 py-4 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-primary focus:bg-white transition-all outline-none font-medium text-lg"
                 required
                 minLength={3}
@@ -74,7 +74,7 @@ export default function UsernameSetupModal() {
               />
             </div>
             <p className="text-xs text-gray-400 ml-1">
-              Sadece harf, rakam ve alt çizgi (_) kullanabilirsiniz.
+              Only letters, numbers and underscore (_) allowed.
             </p>
           </div>
 
@@ -96,10 +96,10 @@ export default function UsernameSetupModal() {
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Kaydediliyor...
+                Saving...
               </span>
             ) : (
-              "Başla"
+              "Get Started"
             )}
           </button>
         </form>
