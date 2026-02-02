@@ -597,42 +597,32 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
 
     // Rate limiting settings
     const BATCH_SIZE = 3; // Her batch'te 3 mekan paralel analiz
-    const BATCH_DELAY_MS = 5000; // Batch'ler arası 5 saniye bekleme
-    const MAX_RETRIES = 2;
-    const RETRY_BASE_DELAY_MS = 5000;
+    const BATCH_DELAY_MS = 4000; // Batch'ler arası 4 saniye bekleme
+    
+    // Quota tracking - günlük limit aşıldığında dur
+    let primaryQuotaExceeded = false;
+    let secondaryQuotaExceeded = false;
+    const skippedDueToQuota: string[] = [];
 
     // Helper: delay function
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-    // Helper: analyze with retry on 429 errors
-    const analyzeWithRetry = async (
-      place: Place,
-      analyzeFunc: (place: Place) => Promise<string[]>,
-      apiName: string,
-      retryCount = 0
-    ): Promise<string[] | null> => {
-      try {
-        const tags = await analyzeFunc(place);
-        return tags;
-      } catch (error: any) {
-        const errorMessage = error?.message || "";
-        const is429 = errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("quota");
-        
-        if (is429 && retryCount < MAX_RETRIES) {
-          const retryDelay = RETRY_BASE_DELAY_MS * Math.pow(2, retryCount);
-          console.log(`[${apiName}] ⏳ Rate limited for ${place.name}, retrying in ${retryDelay / 1000}s (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
-          await delay(retryDelay);
-          return analyzeWithRetry(place, analyzeFunc, apiName, retryCount + 1);
-        }
-        throw error;
-      }
+    // Helper: Check if error is quota exceeded (daily limit)
+    const isQuotaExceeded = (error: any): boolean => {
+      const errorMessage = error?.message || "";
+      return errorMessage.includes("429") || 
+             errorMessage.includes("RESOURCE_EXHAUSTED") || 
+             errorMessage.includes("quota") ||
+             errorMessage.includes("exceeded");
     };
 
     // Process in batches of 3 with delays between batches
     const processInBatches = async (
       places: Place[],
       analyzeFunc: (place: Place) => Promise<string[]>,
-      apiName: string
+      apiName: string,
+      checkQuotaExceeded: () => boolean,
+      setQuotaExceeded: () => void
     ) => {
       // Split into batches of 3
       const batches: Place[][] = [];
@@ -643,6 +633,14 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
       console.log(`[${apiName}] 📦 ${places.length} mekan, ${batches.length} batch (her biri ${BATCH_SIZE} mekan)`);
 
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        // Quota aşıldıysa kalan mekanları atla
+        if (checkQuotaExceeded()) {
+          const remainingPlaces = batches.slice(batchIndex).flat();
+          remainingPlaces.forEach(p => skippedDueToQuota.push(p.id));
+          console.log(`[${apiName}] ⚠️ Günlük limit aşıldı, ${remainingPlaces.length} mekan atlandı`);
+          break;
+        }
+
         const batch = batches[batchIndex];
         
         // Batch'ler arası bekleme (ilk batch hariç)
@@ -651,13 +649,21 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
           await delay(BATCH_DELAY_MS);
         }
 
-        console.log(`[${apiName}] 🚀 Batch ${batchIndex + 1}/${batches.length} başlıyor: ${batch.map(p => p.name).join(", ")}`);
+        console.log(`[${apiName}] 🚀 Batch ${batchIndex + 1}/${batches.length}: ${batch.map(p => p.name).join(", ")}`);
         
-        // Batch içindeki 3 mekanı paralel analiz et
+        // Batch içindeki mekanları paralel analiz et
+        let quotaHitInBatch = false;
+        
         const batchResults = await Promise.allSettled(
           batch.map(async (place) => {
+            // Bu batch'te quota aşıldıysa bu mekanı atla
+            if (quotaHitInBatch || checkQuotaExceeded()) {
+              skippedDueToQuota.push(place.id);
+              return { place, success: false, skipped: true };
+            }
+            
             try {
-              const tags = await analyzeWithRetry(place, analyzeFunc, apiName);
+              const tags = await analyzeFunc(place);
               if (tags && tags.length > 0) {
                 resultMap.set(place.id, tags);
                 newlyAnalyzedVenues.push(place.id);
@@ -668,30 +674,41 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
                   placeName: place.name,
                   tagsCount: tags.length,
                 });
+                return { place, success: true, skipped: false };
               } else {
                 console.log(`[${apiName}] ⚠️ ${place.name} - tag yok`);
-                log.analysis(`${apiName} analysis returned empty tags`, {
-                  action: "gemini_analysis_empty",
-                  placeId: place.id,
-                  placeName: place.name,
-                });
+                return { place, success: true, skipped: false }; // Still count as processed
               }
-              return { place, success: true };
             } catch (error: any) {
+              // Quota aşıldıysa hata verme, sadece işaretle ve devam et
+              if (isQuotaExceeded(error)) {
+                quotaHitInBatch = true;
+                setQuotaExceeded();
+                skippedDueToQuota.push(place.id);
+                console.log(`[${apiName}] 📛 Günlük limit doldu - ${place.name} ve sonraki mekanlar atlanacak`);
+                return { place, success: false, skipped: true };
+              }
+              
+              // Diğer hatalar için normal log
               failedVenues.push(place.id);
-              console.log(`[${apiName}] ❌ ${place.name} - hata: ${error.message?.substring(0, 50)}`);
-              log.analysisError(`${apiName} batch analysis failed for place`, {
-                action: "gemini_batch_analysis_failed",
-                placeId: place.id,
-                placeName: place.name,
-              }, error);
-              return { place, success: false };
+              console.log(`[${apiName}] ❌ ${place.name} - hata`);
+              return { place, success: false, skipped: false };
             }
           })
         );
 
-        const successCount = batchResults.filter(r => r.status === "fulfilled" && (r.value as any).success).length;
-        console.log(`[${apiName}] 📊 Batch ${batchIndex + 1} tamamlandı: ${successCount}/${batch.length} başarılı`);
+        const successCount = batchResults.filter(r => 
+          r.status === "fulfilled" && (r.value as any).success
+        ).length;
+        const skippedCount = batchResults.filter(r => 
+          r.status === "fulfilled" && (r.value as any).skipped
+        ).length;
+        
+        if (skippedCount > 0) {
+          console.log(`[${apiName}] 📊 Batch ${batchIndex + 1}: ${successCount} başarılı, ${skippedCount} atlandı (limit)`);
+        } else {
+          console.log(`[${apiName}] 📊 Batch ${batchIndex + 1}: ${successCount}/${batch.length} başarılı`);
+        }
       }
     };
 
@@ -703,15 +720,32 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
 
     // Her iki API'yi paralel başlat (her biri kendi batch'lerini sırayla işleyecek)
     const primaryPromise = primaryPlaces.length > 0 
-      ? processInBatches(primaryPlaces, analyzePlacePhotosWithGeminiPrimary, "Gemini Primary")
+      ? processInBatches(
+          primaryPlaces, 
+          analyzePlacePhotosWithGeminiPrimary, 
+          "Gemini Primary",
+          () => primaryQuotaExceeded,
+          () => { primaryQuotaExceeded = true; }
+        )
       : Promise.resolve();
 
     const secondaryPromise = secondaryPlaces.length > 0 
-      ? processInBatches(secondaryPlaces, analyzePlacePhotosWithGeminiSecondary, "Gemini Secondary")
+      ? processInBatches(
+          secondaryPlaces, 
+          analyzePlacePhotosWithGeminiSecondary, 
+          "Gemini Secondary",
+          () => secondaryQuotaExceeded,
+          () => { secondaryQuotaExceeded = true; }
+        )
       : Promise.resolve();
 
     // Her iki API'nin bitmesini bekle
     await Promise.all([primaryPromise, secondaryPromise]);
+    
+    // Quota durumunu raporla
+    if (skippedDueToQuota.length > 0) {
+      console.log(`[Batch Analysis] ⚠️ Günlük API limiti nedeniyle ${skippedDueToQuota.length} mekan atlandı. Yarın tekrar denenecek.`);
+    }
     
     console.log("[Batch Analysis] Tüm Gemini analizleri tamamlandı.", {
       cached: cachedVenues.length,
