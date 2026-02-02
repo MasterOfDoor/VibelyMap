@@ -595,11 +595,11 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
       model: "gemini-3-flash-preview"
     });
 
-    // Rate limiting: Sequential processing with delays to avoid 429 errors
-    // Free tier: 20 requests/day, so we process one at a time with delays
-    const REQUEST_DELAY_MS = 4000; // 4 seconds between each request
+    // Rate limiting settings
+    const BATCH_SIZE = 3; // Her batch'te 3 mekan paralel analiz
+    const BATCH_DELAY_MS = 5000; // Batch'ler arası 5 saniye bekleme
     const MAX_RETRIES = 2;
-    const RETRY_BASE_DELAY_MS = 5000; // Start with 5 second retry delay
+    const RETRY_BASE_DELAY_MS = 5000;
 
     // Helper: delay function
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -619,8 +619,8 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
         const is429 = errorMessage.includes("429") || errorMessage.includes("RESOURCE_EXHAUSTED") || errorMessage.includes("quota");
         
         if (is429 && retryCount < MAX_RETRIES) {
-          const retryDelay = RETRY_BASE_DELAY_MS * Math.pow(2, retryCount); // Exponential backoff
-          console.log(`[${apiName}] Rate limited for ${place.name}, retrying in ${retryDelay / 1000}s (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+          const retryDelay = RETRY_BASE_DELAY_MS * Math.pow(2, retryCount);
+          console.log(`[${apiName}] ⏳ Rate limited for ${place.name}, retrying in ${retryDelay / 1000}s (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
           await delay(retryDelay);
           return analyzeWithRetry(place, analyzeFunc, apiName, retryCount + 1);
         }
@@ -628,87 +628,90 @@ export async function analyzePlacesPhotos(places: Place[]): Promise<Map<string, 
       }
     };
 
-    // Sequential processing function with rate limiting
-    const processSequentially = async (
+    // Process in batches of 3 with delays between batches
+    const processInBatches = async (
       places: Place[],
       analyzeFunc: (place: Place) => Promise<string[]>,
       apiName: string
     ) => {
-      console.log(`[${apiName}] Processing ${places.length} places sequentially with ${REQUEST_DELAY_MS}ms delay...`);
+      // Split into batches of 3
+      const batches: Place[][] = [];
+      for (let i = 0; i < places.length; i += BATCH_SIZE) {
+        batches.push(places.slice(i, i + BATCH_SIZE));
+      }
 
-      for (let i = 0; i < places.length; i++) {
-        const place = places[i];
+      console.log(`[${apiName}] 📦 ${places.length} mekan, ${batches.length} batch (her biri ${BATCH_SIZE} mekan)`);
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
         
-        // Add delay between requests (except for the first one)
-        if (i > 0) {
-          console.log(`[${apiName}] Waiting ${REQUEST_DELAY_MS / 1000}s before next request...`);
-          await delay(REQUEST_DELAY_MS);
+        // Batch'ler arası bekleme (ilk batch hariç)
+        if (batchIndex > 0) {
+          console.log(`[${apiName}] ⏳ Batch ${batchIndex + 1} için ${BATCH_DELAY_MS / 1000}s bekleniyor...`);
+          await delay(BATCH_DELAY_MS);
         }
 
-        console.log(`[${apiName}] Analyzing ${i + 1}/${places.length}: ${place.name}`);
+        console.log(`[${apiName}] 🚀 Batch ${batchIndex + 1}/${batches.length} başlıyor: ${batch.map(p => p.name).join(", ")}`);
         
-        try {
-          const tags = await analyzeWithRetry(place, analyzeFunc, apiName);
-          if (tags && tags.length > 0) {
-            resultMap.set(place.id, tags);
-            newlyAnalyzedVenues.push(place.id);
-            log.analysis(`${apiName} analysis completed`, {
-              action: "gemini_analysis_success",
-              placeId: place.id,
-              placeName: place.name,
-              tagsCount: tags.length,
-            });
-          } else {
-            log.analysis(`${apiName} analysis returned empty tags`, {
-              action: "gemini_analysis_empty",
-              placeId: place.id,
-              placeName: place.name,
-            });
-          }
-        } catch (error: any) {
-          failedVenues.push(place.id);
-          log.analysisError(`${apiName} batch analysis failed for place`, {
-            action: "gemini_batch_analysis_failed",
-            placeId: place.id,
-            placeName: place.name,
-          }, error);
-        }
+        // Batch içindeki 3 mekanı paralel analiz et
+        const batchResults = await Promise.allSettled(
+          batch.map(async (place) => {
+            try {
+              const tags = await analyzeWithRetry(place, analyzeFunc, apiName);
+              if (tags && tags.length > 0) {
+                resultMap.set(place.id, tags);
+                newlyAnalyzedVenues.push(place.id);
+                console.log(`[${apiName}] ✅ ${place.name} - ${tags.length} tag`);
+                log.analysis(`${apiName} analysis completed`, {
+                  action: "gemini_analysis_success",
+                  placeId: place.id,
+                  placeName: place.name,
+                  tagsCount: tags.length,
+                });
+              } else {
+                console.log(`[${apiName}] ⚠️ ${place.name} - tag yok`);
+                log.analysis(`${apiName} analysis returned empty tags`, {
+                  action: "gemini_analysis_empty",
+                  placeId: place.id,
+                  placeName: place.name,
+                });
+              }
+              return { place, success: true };
+            } catch (error: any) {
+              failedVenues.push(place.id);
+              console.log(`[${apiName}] ❌ ${place.name} - hata: ${error.message?.substring(0, 50)}`);
+              log.analysisError(`${apiName} batch analysis failed for place`, {
+                action: "gemini_batch_analysis_failed",
+                placeId: place.id,
+                placeName: place.name,
+              }, error);
+              return { place, success: false };
+            }
+          })
+        );
+
+        const successCount = batchResults.filter(r => r.status === "fulfilled" && (r.value as any).success).length;
+        console.log(`[${apiName}] 📊 Batch ${batchIndex + 1} tamamlandı: ${successCount}/${batch.length} başarılı`);
       }
     };
 
-    // Merge all uncached places into one queue to avoid hitting rate limits
-    // Primary and Secondary APIs share the same Gemini quota
-    const allUncachedPlaces = [...uncachedPlaces];
-    
-    console.log(`[Batch Analysis] Processing ${allUncachedPlaces.length} uncached places with rate limiting...`);
-    
-    // Use alternating API calls to distribute load
-    const primaryPlaces: Place[] = [];
-    const secondaryPlaces: Place[] = [];
-    
-    allUncachedPlaces.forEach((place, index) => {
-      if (index % 2 === 0) {
-        primaryPlaces.push(place);
-      } else {
-        secondaryPlaces.push(place);
-      }
-    });
+    // İlk 10 mekan Primary API, sonraki 10 mekan Secondary API
+    const primaryPlaces = uncachedPlaces.slice(0, 10);
+    const secondaryPlaces = uncachedPlaces.slice(10, 20);
 
-    // Process both APIs sequentially but interleaved to maximize throughput
-    // Process Primary first, then Secondary (not in parallel to respect rate limits)
-    console.log(`[Batch Analysis] Starting Primary API (${primaryPlaces.length} places)...`);
-    await processSequentially(
-      primaryPlaces,
-      analyzePlacePhotosWithGeminiPrimary,
-      "Gemini Primary"
-    );
+    console.log(`[Batch Analysis] 🔀 Mekan dağılımı: Primary API: ${primaryPlaces.length}, Secondary API: ${secondaryPlaces.length}`);
 
-    console.log(`[Batch Analysis] Starting Secondary API (${secondaryPlaces.length} places)...`);
-    await processSequentially(
-      secondaryPlaces,
-      analyzePlacePhotosWithGeminiSecondary,
-      "Gemini Secondary"
-    );
+    // Her iki API'yi paralel başlat (her biri kendi batch'lerini sırayla işleyecek)
+    const primaryPromise = primaryPlaces.length > 0 
+      ? processInBatches(primaryPlaces, analyzePlacePhotosWithGeminiPrimary, "Gemini Primary")
+      : Promise.resolve();
+
+    const secondaryPromise = secondaryPlaces.length > 0 
+      ? processInBatches(secondaryPlaces, analyzePlacePhotosWithGeminiSecondary, "Gemini Secondary")
+      : Promise.resolve();
+
+    // Her iki API'nin bitmesini bekle
+    await Promise.all([primaryPromise, secondaryPromise]);
     
     console.log("[Batch Analysis] Tüm Gemini analizleri tamamlandı.", {
       cached: cachedVenues.length,
