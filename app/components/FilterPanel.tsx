@@ -19,16 +19,16 @@ export interface FilterState {
   };
 }
 
-const baseCriteria = ["Isiklandirma", "Priz", "Ambiyans", "Oturma", "Deniz", "Sigara"];
+const baseCriteria = ["Lighting", "Outlets", "Ambiance", "Seating", "Sea", "Smoking"];
 
 const criterionOptions: { [key: string]: string[] } = {
-  Kategori: ["Kafe", "Restoran", "Bar", "Cocktail Lounge", "Meyhane", "Shot Bar"],
-  Isiklandirma: ["Los", "Dogal", "Canli"],
-  Priz: ["Priz Az", "Priz Orta", "Priz Var", "Masada priz"],
-  Ambiyans: ["Retro", "Modern"],
-  Oturma: ["Koltuk var", "Koltuk yok"],
-  Deniz: ["Deniz goruyor", "Deniz gormuyor"],
-  Sigara: ["Sigara icilebilir", "Kapali alanda sigara icilebilir"],
+  Category: ["Cafe", "Restaurant", "Bar", "Cocktail Lounge", "Tavern", "Shot Bar"],
+  Lighting: ["Dim", "Natural", "Bright"],
+  Outlets: ["Few Outlets", "Some Outlets", "Available", "Table Outlet"],
+  Ambiance: ["Retro", "Modern"],
+  Seating: ["Has Armchairs", "No Armchairs"],
+  Sea: ["Sea View", "No Sea View"],
+  Smoking: ["Smoking Allowed", "Indoor Smoking Allowed"],
 };
 
 export default function FilterPanel({
@@ -44,9 +44,9 @@ export default function FilterPanel({
     ranges: {},
   });
   const [rangeValues, setRangeValues] = useState<{ [key: string]: number }>({
-    Isiklandirma: 3,
-    Oturma: 0,
-    Priz: 0,
+    Lighting: 3,
+    Seating: 0,
+    Outlets: 0,
   });
 
   const toggleCriterion = (criterion: string) => {
@@ -74,19 +74,19 @@ export default function FilterPanel({
 
   const handleApply = () => {
     // Gerçek bir kategori seçilip seçilmediğini kontrol et
-    const hasCategory = selectedFilters.sub.Kategori && selectedFilters.sub.Kategori.length > 0;
+    const hasCategory = selectedFilters.sub.Category && selectedFilters.sub.Category.length > 0;
     
     if (!hasCategory) {
       alert("You must select at least one category.");
       return;
     }
 
-    // Range değerlerini ekle, ama SADECE default değerlerden farklıysa ekle
-    // Default değerler: Isiklandirma: 3, Oturma: 0, Priz: 0
+    // Add range values only if different from defaults
+    // Default values: Lighting: 3, Seating: 0, Outlets: 0
     const ranges: { [key: string]: number } = {};
-    if (rangeValues.Isiklandirma !== 3) ranges.Isiklandirma = rangeValues.Isiklandirma;
-    if (rangeValues.Oturma !== 0) ranges.Oturma = rangeValues.Oturma;
-    if (rangeValues.Priz !== 0 && rangeValues.Priz !== undefined) ranges.Priz = rangeValues.Priz;
+    if (rangeValues.Lighting !== 3) ranges.Lighting = rangeValues.Lighting;
+    if (rangeValues.Seating !== 0) ranges.Seating = rangeValues.Seating;
+    if (rangeValues.Outlets !== 0 && rangeValues.Outlets !== undefined) ranges.Outlets = rangeValues.Outlets;
     
     const filtersWithExtra = {
       ...selectedFilters,
@@ -100,7 +100,7 @@ export default function FilterPanel({
 
   const handleReset = () => {
     setSelectedFilters({ main: [], sub: {}, ranges: {} });
-    setRangeValues({ Isiklandirma: 3, Oturma: 0, Priz: 0 });
+    setRangeValues({ Lighting: 3, Seating: 0, Outlets: 0 });
     setExpandedCriterion(null);
     onResetFilters();
   };
@@ -126,20 +126,20 @@ export default function FilterPanel({
       </div>
       <form id="filterForm" className="filter-list">
         {Object.entries(criterionOptions).map(([criterion, options]) => {
-          // Işıklandırma, Oturma, Priz için range input göster
-          if (criterion === "Isiklandirma" || criterion === "Oturma" || criterion === "Priz") {
-            const isIsiklandirma = criterion === "Isiklandirma";
-            const isPriz = criterion === "Priz";
+          // Show range input for Lighting, Seating, Outlets
+          if (criterion === "Lighting" || criterion === "Seating" || criterion === "Outlets") {
+            const isLighting = criterion === "Lighting";
+            const isOutlets = criterion === "Outlets";
             
-            const min = isIsiklandirma ? 1 : (isPriz ? 1 : 0);
-            const max = isIsiklandirma ? 5 : (isPriz ? 4 : 3);
+            const min = isLighting ? 1 : (isOutlets ? 1 : 0);
+            const max = isLighting ? 5 : (isOutlets ? 4 : 3);
             const step = 1;
             
             const currentValue = rangeValues[criterion];
             
-            const labels = isIsiklandirma 
+            const labels = isLighting 
               ? ["Bright", "", "Natural", "", "Dim"]
-              : isPriz
+              : isOutlets
               ? ["", "Few", "Medium", "Available", "Table Outlet"]
               : ["None", "Few", "Medium", "Available"];
             
@@ -204,12 +204,12 @@ export default function FilterPanel({
             );
           }
           
-          // Priz için chip-option gösterme (range input kullanılıyor)
-          if (criterion === "Priz") {
+          // Don't show chip-options for Outlets (range input is used)
+          if (criterion === "Outlets") {
             return null;
           }
           
-          // Diğer kriterler için normal chip-option'lar
+          // Normal chip-options for other criteria
           return (
             <div
               key={criterion}
