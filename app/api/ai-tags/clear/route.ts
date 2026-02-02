@@ -6,8 +6,9 @@ let redis: Redis | null = null;
 
 function getRedisClient(): Redis | null {
   if (redis) return redis;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // New Upstash KV environment variables
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
   try {
     redis = new Redis({ url, token });

@@ -1,57 +1,28 @@
 "use client";
 
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useConfig } from "wagmi";
-import { useMemo, useEffect, useState } from "react";
-import { readContract } from "@wagmi/core";
+import { useAccount } from "wagmi";
+import { useState, useEffect, useCallback } from "react";
 
-// ReviewNFT Contract ABI (sadece kullanılan fonksiyonlar)
-const REVIEW_NFT_ABI = [
-  {
-    inputs: [
-      { internalType: "string", name: "placeId", type: "string" },
-      { internalType: "uint8", name: "rating", type: "uint8" },
-      { internalType: "string", name: "comment", type: "string" },
-      { internalType: "string[]", name: "photos", type: "string[]" },
-    ],
-    name: "mintReview",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "string", name: "placeId", type: "string" }],
-    name: "getPlaceReviews",
-    outputs: [{ internalType: "uint256[]", name: "", type: "uint256[]" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
-    name: "getReview",
-    outputs: [
-      {
-        components: [
-          { internalType: "uint256", name: "tokenId", type: "uint256" },
-          { internalType: "string", name: "placeId", type: "string" },
-          { internalType: "uint8", name: "rating", type: "uint8" },
-          { internalType: "string", name: "comment", type: "string" },
-          { internalType: "string[]", name: "photos", type: "string[]" },
-          { internalType: "address", name: "reviewer", type: "address" },
-          { internalType: "uint256", name: "createdAt", type: "uint256" },
-        ],
-        internalType: "struct ReviewNFT.Review",
-        name: "",
-        type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-] as const;
+export interface Review {
+  id: string;
+  place_id: string;
+  reviewer_address: string;
+  rating: number;
+  comment: string;
+  detailed_ratings?: {
+    lighting?: number;
+    ambiance?: number;
+    seating?: number;
+    powerOutlets?: number;
+    proximityToWater?: number;
+    smokingOption?: string;
+    category?: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
 
-// Contract address - environment variable'dan alınacak veya default değer
-const REVIEW_NFT_ADDRESS = (process.env.NEXT_PUBLIC_REVIEW_NFT_ADDRESS || "0x0000000000000000000000000000000000000000") as `0x${string}`;
-
+// Keep BlockchainReview for backwards compatibility in DetailPanel
 export interface BlockchainReview {
   tokenId: bigint;
   placeId: string;
@@ -64,132 +35,130 @@ export interface BlockchainReview {
 
 export function useReviews(placeId: string | null) {
   const { address, isConnected } = useAccount();
-  const config = useConfig();
-  const [reviews, setReviews] = useState<BlockchainReview[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [submitError, setSubmitError] = useState<Error | null>(null);
 
-  // Place'in review token ID'lerini oku
-  const { data: tokenIds, refetch: refetchTokenIds } = useReadContract({
-    address: REVIEW_NFT_ADDRESS,
-    abi: REVIEW_NFT_ABI,
-    functionName: "getPlaceReviews",
-    args: placeId ? [placeId] : undefined,
-    query: {
-      enabled: !!placeId && REVIEW_NFT_ADDRESS !== "0x0000000000000000000000000000000000000000",
-    },
-  });
-
-  // Token ID'ler değiştiğinde review detaylarını oku
-  useEffect(() => {
-    const loadReviews = async () => {
-      if (!tokenIds || tokenIds.length === 0) {
-        setReviews([]);
-        return;
-      }
-
-      setIsLoadingReviews(true);
-      try {
-        // Tüm review'leri paralel olarak oku
-        const reviewPromises = tokenIds.map(async (tokenId) => {
-          try {
-            const review = await readContract(config, {
-              address: REVIEW_NFT_ADDRESS,
-              abi: REVIEW_NFT_ABI,
-              functionName: "getReview",
-              args: [tokenId],
-            }) as any;
-
-            return {
-              tokenId: review.tokenId,
-              placeId: review.placeId,
-              rating: Number(review.rating),
-              comment: review.comment,
-              photos: review.photos || [],
-              reviewer: review.reviewer,
-              createdAt: review.createdAt,
-            } as BlockchainReview;
-          } catch (error) {
-            console.error(`Review ${tokenId} okunamadı:`, error);
-            return null;
-          }
-        });
-
-        const loadedReviews = await Promise.all(reviewPromises);
-        const validReviews = loadedReviews.filter((r): r is BlockchainReview => r !== null);
-        
-        // En yeni önce sırala
-        validReviews.sort((a, b) => Number(b.createdAt - a.createdAt));
-        setReviews(validReviews);
-      } catch (error) {
-        console.error("Review'ler yüklenirken hata:", error);
-        setReviews([]);
-      } finally {
-        setIsLoadingReviews(false);
-      }
-    };
-
-    loadReviews();
-  }, [tokenIds]);
-
-  // Review yazma işlemi
-  const {
-    writeContract,
-    data: hash,
-    isPending: isSubmitting,
-    error: submitError,
-  } = useWriteContract();
-
-  // Transaction onayını bekle
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  });
-
-  // Transaction başarılı olduğunda review listesini yenile
-  useEffect(() => {
-    if (isConfirmed && hash) {
-      setTimeout(() => {
-        refetchTokenIds();
-      }, 2000); // 2 saniye bekle (blockchain'de işlem tamamlanması için)
+  // Fetch reviews from Supabase
+  const fetchReviews = useCallback(async () => {
+    if (!placeId) {
+      setReviews([]);
+      return;
     }
-  }, [isConfirmed, hash, refetchTokenIds]);
 
-  // Yorum gönder
-  const submitReview = async (rating: number, comment: string, photos: string[] = []) => {
-    if (!placeId || !isConnected) {
-      throw new Error("Place ID gerekli veya wallet bağlı değil");
+    setIsLoadingReviews(true);
+    try {
+      const response = await fetch(`/api/reviews?placeId=${encodeURIComponent(placeId)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch reviews: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setReviews(data.reviews || []);
+    } catch (error) {
+      console.error("[useReviews] Failed to fetch reviews:", error);
+      setReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  }, [placeId]);
+
+  // Load reviews when placeId changes
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  // Submit a new review
+  const submitReview = async (
+    rating: number, 
+    comment: string, 
+    _photos: string[] = [], // photos parameter kept for backwards compatibility but not used
+    detailedRatings?: {
+      lighting?: number;
+      ambiance?: number;
+      seating?: number;
+      powerOutlets?: number;
+      proximityToWater?: number;
+      smokingOption?: string;
+      category?: string;
+    }
+  ) => {
+    if (!placeId || !isConnected || !address) {
+      throw new Error("Wallet connection required to submit review");
     }
 
     if (rating < 1 || rating > 5) {
-      throw new Error("Rating 1-5 arasında olmalı");
+      throw new Error("Rating must be between 1 and 5");
     }
 
     if (!comment.trim()) {
-      throw new Error("Yorum boş olamaz");
+      throw new Error("Comment cannot be empty");
     }
 
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setIsConfirmed(false);
+
     try {
-      await writeContract({
-        address: REVIEW_NFT_ADDRESS,
-        abi: REVIEW_NFT_ABI,
-        functionName: "mintReview",
-        args: [placeId, rating as 1 | 2 | 3 | 4 | 5, comment, photos],
+      const response = await fetch("/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          placeId,
+          reviewerAddress: address,
+          rating,
+          comment: comment.trim(),
+          detailedRatings,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit review");
+      }
+
+      setIsConfirmed(true);
+      
+      // Refresh reviews after successful submission
+      await fetchReviews();
+      
+      // Reset confirmed state after 3 seconds
+      setTimeout(() => setIsConfirmed(false), 3000);
     } catch (error: any) {
-      console.error("Review gönderme hatası:", error);
+      console.error("[useReviews] Submit error:", error);
+      setSubmitError(error);
       throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Convert to BlockchainReview format for backwards compatibility with DetailPanel
+  const blockchainReviews: BlockchainReview[] = reviews.map((review, index) => ({
+    tokenId: BigInt(index),
+    placeId: review.place_id,
+    rating: review.rating,
+    comment: review.comment,
+    photos: [],
+    reviewer: review.reviewer_address as `0x${string}`,
+    createdAt: BigInt(Math.floor(new Date(review.created_at).getTime() / 1000)),
+  }));
+
   return {
-    reviews,
+    reviews: blockchainReviews,
+    rawReviews: reviews, // Original Supabase format
     submitReview,
-    isSubmitting: isSubmitting || isConfirming,
+    isSubmitting,
     isConfirmed,
     submitError,
     isConnected,
     address,
     isLoadingReviews,
-    refetch: refetchTokenIds,
+    refetch: fetchReviews,
   };
 }
-

@@ -8,11 +8,12 @@ let redis: Redis | null = null;
 function getRedisClient(): Redis | null {
   if (redis) return redis;
   
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // New Upstash KV environment variables
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
   
   if (!url || !token) {
-    log.storage("Upstash Redis credentials not found, batch caching disabled", {
+    log.storage("Upstash KV credentials not found (KV_REST_API_URL/KV_REST_API_TOKEN), batch caching disabled", {
       action: "redis_init_skip",
       hasUrl: !!url,
       hasToken: !!token,
@@ -25,12 +26,12 @@ function getRedisClient(): Redis | null {
       url: url,
       token: token,
     });
-    log.storage("Upstash Redis client initialized for batch operations", {
+    log.storage("Upstash KV client initialized for batch operations", {
       action: "redis_init_success",
     });
     return redis;
   } catch (error: any) {
-    log.storageError("Failed to initialize Redis client for batch", {
+    log.storageError("Failed to initialize Upstash KV client for batch", {
       action: "redis_init_error",
     }, error);
     return null;

@@ -9,11 +9,12 @@ function getRedisClient(): Redis | null {
   try {
     if (redis) return redis;
     
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+    // New Upstash KV environment variables
+    const url = process.env.KV_REST_API_URL;
+    const token = process.env.KV_REST_API_TOKEN;
     
     if (!url || !token) {
-      console.warn("[Redis] Credentials missing in environment variables");
+      console.warn("[Redis] KV_REST_API_URL or KV_REST_API_TOKEN missing in environment variables");
       return null;
     }
     

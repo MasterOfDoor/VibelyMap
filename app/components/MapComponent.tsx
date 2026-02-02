@@ -356,15 +356,15 @@ function MapWithLoader({
                 }
                 animation={analyzing ? google.maps.Animation.BOUNCE : undefined}
               >
-                {isActive && (
+                {isActive && place.coords && place.coords.length === 2 && (
                   <InfoWindow
+                    position={{ lat: place.coords[0], lng: place.coords[1] }}
                     onCloseClick={() => setActiveInfoWindow(null)}
                     options={{
-                      pixelOffset: new google.maps.Size(0, -10),
-                      disableAutoPan: true, // Harita kaymasını önle
+                      pixelOffset: new google.maps.Size(0, -40),
+                      disableAutoPan: true,
                     }}
                   >
-                    {/* Google Maps'in varsayılan InfoWindow stilini kullan - tek bir string içerik */}
                     <div>
                       {place.name}
                       {place.rating && ` ⭐ ${place.rating}`}

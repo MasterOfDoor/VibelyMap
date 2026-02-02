@@ -194,7 +194,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
     }
 
     try {
-      // Detaylı rating bilgilerini comment'e JSON olarak ekle
+      // Detailed ratings as structured data for Supabase
       const detailedInfo = {
         lighting: detailedRatings.lighting,
         ambiance: detailedRatings.ambiance,
@@ -205,17 +205,15 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
         category: detailedRatings.category,
       };
       
-      // Comment'e detaylı bilgileri ekle (JSON formatında)
-      const enrichedComment = `${reviewComment.trim()}\n\n[Detailed Review: ${JSON.stringify(detailedInfo)}]`;
-      
-      await submitReview(reviewRating, enrichedComment, []);
+      // Submit review with detailed ratings as separate field
+      await submitReview(reviewRating, reviewComment.trim(), [], detailedInfo);
       setReviewComment("");
       setReviewRating(5);
       setShowReviewForm(false);
-      // Review listesini yenile
+      // Refresh review list
       setTimeout(() => {
         refetch();
-      }, 3000);
+      }, 1000);
       
       // Form state'lerini sıfırla
       setDetailedRatings({
@@ -904,7 +902,7 @@ export default function DetailPanel({ isOpen, place, onClose, onPlaceUpdate, isA
       {/* Blockchain Yorumları */}
       {placeDetails.blockchainReviews && placeDetails.blockchainReviews.length > 0 && (
         <div className="reviews">
-          <h3>Blockchain Reviews</h3>
+          <h3>User Reviews</h3>
           <div id="blockchainReviewsList" className="review-list">
             {placeDetails.blockchainReviews.map((review, index) => (
               <div key={`blockchain-${review.tokenId}`} className="review-item">
