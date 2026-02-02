@@ -105,6 +105,8 @@ export function useReviews(placeId: string | null) {
     setIsConfirmed(false);
 
     try {
+      console.log("[useReviews] Submitting review:", { placeId, rating, comment: comment.substring(0, 50) });
+      
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: {
@@ -119,12 +121,16 @@ export function useReviews(placeId: string | null) {
         }),
       });
 
+      console.log("[useReviews] Response status:", response.status);
+      
+      const responseData = await response.json();
+      console.log("[useReviews] Response data:", JSON.stringify(responseData, null, 2));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("[useReviews] Server error response:", JSON.stringify(errorData, null, 2));
-        throw new Error(errorData.error || "Failed to submit review");
+        throw new Error(responseData.error || "Failed to submit review");
       }
 
+      console.log("[useReviews] Review submitted successfully!");
       setIsConfirmed(true);
       
       // Refresh reviews after successful submission
