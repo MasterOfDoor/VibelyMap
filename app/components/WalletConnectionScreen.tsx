@@ -12,7 +12,9 @@ interface WalletOption {
   connector: any;
 }
 
-export default function WalletConnectionScreen() {
+const SKIP_STORAGE_KEY = "vibelymap_skip_login";
+
+export default function WalletConnectionScreen({ onSkip }: { onSkip?: () => void }) {
   const { address, isConnected, isConnecting, connector } = useAccount();
   const { connect, connectors, error, isPending } = useConnect();
   const { disconnect } = useDisconnect();
@@ -201,10 +203,31 @@ export default function WalletConnectionScreen() {
     );
   }
 
+  const handleSkip = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(SKIP_STORAGE_KEY, "1");
+    }
+    onSkip?.();
+  };
+
   // Cüzdan seçim ekranı
   return (
-    <div className="wallet-connection-screen" role="main">
-      <div className="connection-container">
+    <div className="wallet-connection-screen relative" role="main">
+      <div className="connection-container relative pt-2 pr-16">
+        {onSkip && (
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="absolute top-4 right-4 z-[100] w-10 h-10 flex items-center justify-center rounded-full bg-gray-300 hover:bg-gray-400 text-gray-700 hover:text-gray-900 border-2 border-gray-400/50 shadow-lg transition-colors"
+            aria-label="Geçici olarak atla (giriş yapmadan devam et)"
+            title="Geçici olarak atla"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
         <div className="connection-header">
           <div className="connection-icon">🔐</div>
           <h1 className="connection-title">Wallet Connection</h1>

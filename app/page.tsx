@@ -35,9 +35,29 @@ const MapComponent = dynamic(() => import("./components/MapComponent"), {
   ),
 });
 
+const SKIP_LOGIN_KEY = "vibelymap_skip_login";
+
 export default function Home() {
   const { address, isConnected } = useAccount();
   const [mapKey, setMapKey] = useState(0);
+  const [skipLogin, setSkipLogin] = useState(false);
+
+  // Session'dan geçici atlama durumunu oku (sadece client-side)
+  useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem(SKIP_LOGIN_KEY) === "1") {
+      setSkipLogin(true);
+    }
+  }, []);
+
+  // Cüzdan bağlandığında atlamayı iptal et (kullanıcı tekrar giriş yaptı)
+  useEffect(() => {
+    if (isConnected && typeof window !== "undefined") {
+      setSkipLogin(false);
+      sessionStorage.removeItem(SKIP_LOGIN_KEY);
+    }
+  }, [isConnected]);
+
+  const canUseApp = isConnected || skipLogin;
 
   // Wallet bağlandığında haritayı yeniden yükle (otomatik trigger)
   useEffect(() => {
@@ -556,21 +576,34 @@ export default function Home() {
     resetFilters();
   }, [resetFilters]);
 
-  // Wallet bağlantısı kontrolü - bağlı değilse wallet seçim ekranını göster
-  if (!isConnected) {
-    return <WalletConnectionScreen />;
+  // Wallet bağlantısı veya geçici atlama - ikisi yoksa wallet ekranını göster
+  if (!canUseApp) {
+    return (
+      <WalletConnectionScreen
+        onSkip={() => {
+          setSkipLogin(true);
+          if (typeof window !== "undefined") sessionStorage.setItem(SKIP_LOGIN_KEY, "1");
+        }}
+      />
+    );
   }
 
   return (
     <main className="relative w-full h-screen overflow-hidden">
-      {/* Wallet bağlı - uygulama gösteriliyor */}
+      {/* Wallet bağlı veya misafir - durum göstergesi */}
       {address && (
         <div className="fixed top-4 right-4 z-50 bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm">
           Wallet: {address.slice(0, 6)}...{address.slice(-4)}
         </div>
       )}
+      {skipLogin && !address && (
+        <div className="fixed top-4 right-4 z-50 bg-amber-100 text-amber-800 px-4 py-2 rounded-lg text-sm">
+          Misafir (geçici atlama)
+        </div>
+      )}
 
       <TopBar
+        guestMode={skipLogin && !address}
         anyPanelOpen={isFilterOpen || isProfileOpen || isSearchOpen || isDetailOpen}
         onMenuToggle={() => setIsFilterOpen(!isFilterOpen)}
         onSearchClick={() => (isSearchOpen ? closeSearch() : openSearch("map"))}
@@ -645,6 +678,7 @@ export default function Home() {
       <ProfilePanel
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
+        guestMode={skipLogin && !address}
       />
 
       <UsernameSetupModal />

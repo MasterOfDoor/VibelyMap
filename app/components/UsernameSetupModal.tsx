@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useUserProfile } from "../hooks/useUserProfile";
 
+const USERNAME_SKIP_KEY = "vibelymap_username_skip_session";
+
 export default function UsernameSetupModal() {
   const { address, isConnected } = useAccount();
   const { profile, isLoading, updateUsername } = useUserProfile(address);
@@ -12,12 +14,16 @@ export default function UsernameSetupModal() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Profil yüklendiğinde ve kullanıcı adı yoksa modalı aç
+  // Profil yüklendiğinde ve kullanıcı adı yoksa modalı aç (skip yapılmadıysa)
   useEffect(() => {
+    const skipped = typeof window !== "undefined" && sessionStorage.getItem(USERNAME_SKIP_KEY) === "1";
+    if (skipped) {
+      setIsOpen(false);
+      return;
+    }
     if (isConnected && !isLoading && profile && !profile.username) {
       setIsOpen(true);
     } else if (isConnected && !isLoading && !profile && !isLoading) {
-      // Profil hiç yoksa da aç (yeni kayıt)
       setIsOpen(true);
     } else {
       setIsOpen(false);
@@ -38,11 +44,30 @@ export default function UsernameSetupModal() {
     setIsSubmitting(false);
   };
 
+  const handleSkip = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(USERNAME_SKIP_KEY, "1");
+    }
+    setIsOpen(false);
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in fade-in zoom-in duration-300">
+      <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in fade-in zoom-in duration-300 relative">
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+          aria-label="Şimdilik atla (kullanıcı adı seçmeden devam et)"
+          title="Şimdilik atla"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
             👋

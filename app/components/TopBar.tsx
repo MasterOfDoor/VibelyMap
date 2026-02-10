@@ -12,6 +12,8 @@ interface TopBarProps {
   onEventsClick: () => void;
   /** Filtre, arama veya profil paneli açıkken top bar sabit kalır (hover ile gizlenmez). */
   anyPanelOpen?: boolean;
+  /** Giriş atlanmış misafir modu (cüzdan yok). */
+  guestMode?: boolean;
 }
 
 export default function TopBar({
@@ -21,6 +23,7 @@ export default function TopBar({
   onProfileClick,
   onEventsClick,
   anyPanelOpen = false,
+  guestMode = false,
 }: TopBarProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
@@ -131,7 +134,9 @@ export default function TopBar({
           aria-label="Profil"
         >
           <span className="avatar">
-            {isMounted && isConnected && address
+            {isMounted && guestMode
+              ? "M"
+              : isMounted && isConnected && address
               ? address.slice(2, 4).toUpperCase()
               : "P"}
           </span>

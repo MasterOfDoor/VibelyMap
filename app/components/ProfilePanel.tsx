@@ -11,9 +11,11 @@ import { ReviewContextMenu, EditReviewModal } from "./ReviewContextMenu";
 interface ProfilePanelProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Giriş atlanmış misafir modu (cüzdan yok). */
+  guestMode?: boolean;
 }
 
-export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
+export default function ProfilePanel({ isOpen, onClose, guestMode = false }: ProfilePanelProps) {
   const { address, isConnected } = useAccount();
   const [isMounted, setIsMounted] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -183,7 +185,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
               backgroundPosition: avatarUrl ? "center" : undefined,
             }}
           >
-            {!avatarUrl && (isMounted && isConnected && profile?.username
+            {!avatarUrl && (guestMode
+              ? "M"
+              : isMounted && isConnected && profile?.username
               ? profile.username.slice(0, 2).toUpperCase()
               : isMounted && isConnected && address
               ? address.slice(2, 4).toUpperCase()
@@ -225,14 +229,18 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             <div>
               <p className="eyebrow">My Account</p>
               <h2 id="profileUsername">
-                {isMounted && isConnected && profile?.username
+                {guestMode
+                  ? "Misafir"
+                  : isMounted && isConnected && profile?.username
                   ? `@${profile.username}`
                   : isMounted && isConnected && address
                   ? `${address.slice(0, 6)}...${address.slice(-4)}`
                   : "Sign in"}
               </h2>
               <p id="profileEmail" className="muted-text tiny">
-                {isMounted && isConnected && address
+                {guestMode
+                  ? "Giriş yapmadan geçtiniz (geçici)"
+                  : isMounted && isConnected && address
                   ? `${address.slice(0, 6)}...${address.slice(-4)}`
                   : "@username"}
               </p>
@@ -319,7 +327,9 @@ export default function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
             </div>
           </div>
           <p id="authState" className="muted-text bio-line">
-            {isMounted && isConnected
+            {guestMode
+              ? "Misafir modu (giriş atlandı)"
+              : isMounted && isConnected
               ? "Connected with Base Wallet"
               : "Not signed in."}
           </p>
