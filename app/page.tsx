@@ -59,17 +59,17 @@ export default function Home() {
 
   const canUseApp = isConnected || skipLogin;
 
-  // Wallet bağlandığında haritayı yeniden yükle (otomatik trigger)
+  // Login ekranı geçilir geçmez haritayı yükle / yeniden yükle (cüzdan bağlama veya X ile atlama)
   useEffect(() => {
-    if (isConnected && address) {
-      // Wallet bağlandığında haritayı yeniden render et
-      const timer = setTimeout(() => {
-        setMapKey((prev) => prev + 1);
-        console.log("[Map] Auto-reload triggered after wallet connect");
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isConnected, address]);
+    if (!canUseApp) return;
+    const timer = setTimeout(() => {
+      setMapKey((prev) => prev + 1);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("resize"));
+      }
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [canUseApp]);
 
   // Tag migration'ı bir kere çalıştır (sadece client-side)
   useEffect(() => {
