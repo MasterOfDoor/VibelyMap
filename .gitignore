@@ -44,3 +44,6 @@ apiler.txt
 *.secret
 ENV_SETUP.md
 
+# local docs (not for repo)
+CODEBASE_OVERVIEW.md
+
