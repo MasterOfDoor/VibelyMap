@@ -9,9 +9,9 @@ function getRedisClient(): Redis | null {
   try {
     if (redis) return redis;
     
-    // New Upstash KV environment variables
-    const url = process.env.KV_REST_API_URL;
-    const token = process.env.KV_REST_API_TOKEN;
+    // Upstash: UPSTASH_*, KV_*, or new_KV_* (Quickstart) env vars
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || process.env["new_KV_REST_API_URL"] || process.env.NEW_KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || process.env["new_KV_REST_API_TOKEN"] || process.env.NEW_KV_REST_API_TOKEN;
     
     if (!url || !token) {
       console.warn("[Redis] KV_REST_API_URL or KV_REST_API_TOKEN missing in environment variables");
